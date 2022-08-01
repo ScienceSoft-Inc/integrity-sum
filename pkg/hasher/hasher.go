@@ -1,30 +1,29 @@
 package hasher
 
 import (
-	"io"
+	"crypto/md5"
+	"crypto/sha1"
+	"crypto/sha256"
+	"crypto/sha512"
+	"hash"
 )
 
-//go:generate mockgen -source=hasher.go -destination=mocks/mock_hasher.go
-
-type IHasher interface {
-	Hash(file io.Reader) (string, error)
-}
-
-// NewHashSum takes a hashing algorithm as input and returns a hash sum with other data or an error
-func NewHashSum(alg string) (h IHasher, err error) {
+// NewHashSummator takes a hashing algorithm as input and returns a hash sum with other data or an error
+func NewHashSummator(alg string) hash.Hash {
 	switch alg {
 	case "MD5":
-		h = NewMD5()
+		return md5.New()
 	case "SHA1":
-		h = NewSHA1()
+		return sha1.New()
 	case "SHA224":
-		h = NewSHA224()
+		return sha256.New224()
 	case "SHA384":
-		h = NewSHA384()
+		return sha512.New384()
 	case "SHA512":
-		h = NewSHA512()
+		return sha512.New()
+	case "SHA256":
+		fallthrough
 	default:
-		h = NewSHA256()
+		return sha256.New()
 	}
-	return h, nil
 }

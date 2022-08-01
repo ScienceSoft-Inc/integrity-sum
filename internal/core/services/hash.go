@@ -1,7 +1,10 @@
 package services
 
 import (
+	"encoding/hex"
 	"fmt"
+	"hash"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -18,17 +21,15 @@ import (
 
 type HashService struct {
 	hashRepository ports.IHashRepository
-	hasher         hasher.IHasher
+	hasher         hash.Hash
 	alg            string
 	logger         *logrus.Logger
 }
 
 // NewHashService creates a new struct HashService
 func NewHashService(hashRepository ports.IHashRepository, alg string, logger *logrus.Logger) (*HashService, error) {
-	h, err := hasher.NewHashSum(alg)
-	if err != nil {
-		return nil, err
-	}
+	h := hasher.NewHashSummator(alg)
+
 	return &HashService{
 		hashRepository: hashRepository,
 		hasher:         h,
@@ -74,18 +75,32 @@ func (hs HashService) CreateHash(path string) (*api.HashData, error) {
 		hs.logger.Error("not exist file path ", err)
 		return nil, err
 	}
-	defer file.Close()
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+			hs.logger.Error(fmt.Sprintf("[HashService]Error closing file: %s", err))
+		}
+	}(file)
 
-	outputHashSum := api.HashData{}
-	res, err := hs.hasher.Hash(file)
+	_, err = io.Copy(hs.hasher, file)
+	if err != nil {
+		return nil, err
+	}
+	res := hex.EncodeToString(hs.hasher.Sum(nil))
+	defer hs.hasher.Reset()
+
 	if err != nil {
 		hs.logger.Error("not got hash sum ", err)
 		return nil, err
 	}
-	outputHashSum.Hash = res
-	outputHashSum.FileName = filepath.Base(path)
-	outputHashSum.FullFilePath = path
-	outputHashSum.Algorithm = hs.alg
+
+	outputHashSum := api.HashData{
+		Hash:         res,
+		FileName:     filepath.Base(path),
+		FullFilePath: path,
+		Algorithm:    hs.alg,
+	}
+
 	return &outputHashSum, nil
 }
 
@@ -101,13 +116,13 @@ func (hs HashService) SaveHashData(allHashData []*api.HashData, deploymentData *
 
 // GetHashData accesses the repository to get data from the database
 func (hs HashService) GetHashData(dirFiles string, deploymentData *models.DeploymentData) ([]*models.HashDataFromDB, error) {
-	hash, err := hs.hashRepository.GetHashData(dirFiles, hs.alg, deploymentData)
+	h, err := hs.hashRepository.GetHashData(dirFiles, hs.alg, deploymentData)
 	if err != nil {
 		hs.logger.Error("hash service didn't get hash sum", err)
 		return nil, err
 	}
 
-	return hash, nil
+	return h, nil
 }
 
 func (hs HashService) DeleteFromTable(nameDeployment string) error {
