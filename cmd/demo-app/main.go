@@ -4,33 +4,33 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"os"
+	"os/signal"
+
 	"github.com/integrity-sum/internal/core/services"
 	"github.com/integrity-sum/internal/repositories"
 	"github.com/integrity-sum/pkg/api"
 	logConfig "github.com/integrity-sum/pkg/logger"
-	"os"
-	"os/signal"
 )
 
-var dirPath string
-var algorithm string
-var doHelp bool
+var (
+	dirPath   string
+	algorithm string
+	doHelp    bool
+	verbose   int
+)
 
 // Initializes the binding of the flag to a variable that must run before the main() function
 func init() {
 	flag.StringVar(&dirPath, "d", "", "a specific file or directory")
 	flag.StringVar(&algorithm, "a", "SHA256", "algorithm MD5, SHA1, SHA224, SHA256, SHA384, SHA512, default: SHA256")
 	flag.BoolVar(&doHelp, "h", false, "help")
+	flag.IntVar(&verbose, "v", 5, "verbose level")
 }
 
 func main() {
 	flag.Parse()
-
-	// Initialize config for logger
-	logger, err := logConfig.LoadConfig()
-	if err != nil {
-		logger.Fatal("Error during loading from config file", err)
-	}
+	logger := logConfig.InitLogger(verbose)
 
 	// Install context and signal
 	ctx := context.Background()
@@ -59,9 +59,6 @@ func main() {
 
 		// Initialize service
 		service := services.NewAppService(repository, algorithm, logger)
-		if err != nil {
-			logger.Fatalf("can't init service: %s", err)
-		}
 
 		jobs := make(chan string)
 		results := make(chan *api.HashData)
