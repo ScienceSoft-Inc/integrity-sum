@@ -10,7 +10,5 @@ FROM alpine:latest
 WORKDIR /app
 VOLUME /app
 COPY --from=buildenv /src/integritySum .
-COPY --from=buildenv /src/config.yaml ./
-COPY --from=buildenv /src/.env .
 
 ENTRYPOINT ["/app/integritySum"]
