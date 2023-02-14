@@ -28,6 +28,8 @@ func main() {
 	initConfig()
 	logger := logConfig.InitLogger(viper.GetInt("v"))
 
+	DBMigration(logger)
+
 	// Handling shutdown signals
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt)
