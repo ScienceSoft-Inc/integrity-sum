@@ -94,11 +94,14 @@ If you want to generate binaries for different platforms:
 make compile
 ```
 ### Manual start
-Set some values
-+ set the value `secretNameDB` in the file `helm-charts/app-to-monitor/values.yaml` to be the same as the value of `secretName` in the file `helm-charts/database-to-integrity-sum/values.yaml`
-+ set the value `releaseNameDB` in the file `helm-charts/app-to-monitor/values.yaml` to be the same as the release name you will use when installing the database
+Set some environment variables to configure DB params:
+- PGPASSWORD
+- PGUSER
+- PGDATABASE
 
-+ Minikube start
+They will be stored in a secret on the cluster during deployment and used to create application DB and manage connections to it.
+
+Minikube start:
 ```
 minikube start
 ```
@@ -116,17 +119,15 @@ This command installs a chart archive.
 ```
 helm install `release name` `path to a packaged chart`
 ```
-
-Install helm chart with database 
-for example
-```
-helm install db helm-charts/database-to-integrity-sum
-```
-Install helm chart with app
-for example
-```
-helm install app helm-charts/app-to-monitor
-```
+There are some predefined targets in the Makefile for deployment:
+- Install helm chart with database 
+    ```
+    make helm-database
+    ```
+- Install helm chart with app
+    ```
+    make helm-app
+    ```
 
 ## Pay attention!
 If you want to use a hasher-sidecar, then you need to specify the following data in your deployment:

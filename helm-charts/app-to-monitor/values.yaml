@@ -25,5 +25,5 @@ configMap:
   mountPath: etc/nginx # Tracdb5ed folder path
 
 # Data secrets in the database
-secretNameDB: secret-database-to-integrity-sum
-releaseNameDB: db5
+secretNameDB: ""
+releaseNameDB: ""

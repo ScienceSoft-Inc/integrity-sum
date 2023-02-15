@@ -4,6 +4,17 @@ VERSION_MOCKGEN=v1.6.0
 RELEASE_NAME_DB=db
 RELEASE_NAME_APP=app
 
+# helm chart path
+HELM_CHART_DB = helm-charts/database-to-integrity-sum
+HELM_CHART_APP = helm-charts/app-to-monitor
+
+# DB params
+DB_NAME	?= $(PGDATABASE)
+DB_USER	?= $(PGUSER)
+DB_PASSWORD	?= $(PGPASSWORD)
+#
+DB_SECRET_NAME ?= secret-database-to-integrity-sum
+
 ## Runs all of the required cleaning and verification targets.
 .PHONY : all
 all: mod-download test dev-dependencies
@@ -40,13 +51,13 @@ dev-dependencies: minikube update docker helm-all
 minikube:
 	minikube start
 
-SECRET_DB="$$(grep 'secretName' helm-charts/database-to-integrity-sum/values.yaml | cut -d':' -f2 | tr -d '[:space:]')"
-SECRET_HASHER="$$(grep 'secretNameDB' helm-charts/app-to-monitor/values.yaml | cut -d':' -f2 | tr -d '[:space:]')"
-VALUE_RELEASE_NAME_APP="$$(grep 'releaseNameDB' helm-charts/app-to-monitor/values.yaml | cut -d':' -f2 | tr -d '[:space:]')"
-.PHONY: update
-update:
-	sed -i "s/${SECRET_HASHER}/${SECRET_DB}/" helm-charts/app-to-monitor/values.yaml >> helm-charts/app-to-monitor/values.yaml
-	sed -i "s/${VALUE_RELEASE_NAME_APP}/${RELEASE_NAME_DB}/" helm-charts/app-to-monitor/values.yaml >> helm-charts/app-to-monitor/values.yaml
+# SECRET_DB="$$(grep 'secretName' $(HELM_CHART_DB)/values.yaml | cut -d':' -f2 | tr -d '[:space:]')"
+# SECRET_HASHER="$$(grep 'secretNameDB' helm-charts/app-to-monitor/values.yaml | cut -d':' -f2 | tr -d '[:space:]')"
+# VALUE_RELEASE_NAME_APP="$$(grep 'releaseNameDB' helm-charts/app-to-monitor/values.yaml | cut -d':' -f2 | tr -d '[:space:]')"
+# .PHONY: update
+# update:
+# 	sed -i "s/${SECRET_HASHER}/${SECRET_DB}/" helm-charts/app-to-monitor/values.yaml >> helm-charts/app-to-monitor/values.yaml
+# 	sed -i "s/${VALUE_RELEASE_NAME_APP}/${RELEASE_NAME_DB}/" helm-charts/app-to-monitor/values.yaml >> helm-charts/app-to-monitor/values.yaml
 
 .PHONY : docker
 docker:
@@ -57,11 +68,23 @@ docker:
 helm-all: helm-database helm-app
 
 helm-database:
-	helm dependency update helm-charts/database-to-integrity-sum
-	helm install ${RELEASE_NAME_DB} helm-charts/database-to-integrity-sum
+	@helm dependency update $(HELM_CHART_DB)
+	@helm upgrade -i ${RELEASE_NAME_DB} \
+		--set postgresql.auth.database=$(DB_NAME) \
+		--set postgresql.auth.username=$(DB_USER) \
+		--set postgresql.auth.password=$(DB_PASSWORD) \
+		--set-string secretName=$(DB_SECRET_NAME) \
+		$(HELM_CHART_DB)
 
 helm-app:
-	helm install ${RELEASE_NAME_APP} helm-charts/app-to-monitor
+	@helm upgrade -i ${RELEASE_NAME_APP} \
+		--set releaseNameDB=$(DB_NAME) \
+		--set secretNameDB=$(DB_SECRET_NAME) \
+		$(HELM_CHART_APP)
+
+.PHONY: kind-load-images
+kind-load-images:
+	kind load docker-image hasher:latest 
 
 .PHONY : tidy
 tidy: ## Cleans the Go module.
