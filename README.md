@@ -95,9 +95,9 @@ make compile
 ```
 ### Manual start
 Set some environment variables to configure DB params:
-- PGPASSWORD
-- PGUSER
-- PGDATABASE
+- DB_PASSWORD
+- DB_USER
+- DB_NAME
 
 They will be stored in a secret on the cluster during deployment and used to create application DB and manage connections to it.
 

@@ -8,11 +8,6 @@ RELEASE_NAME_APP=app
 HELM_CHART_DB = helm-charts/database-to-integrity-sum
 HELM_CHART_APP = helm-charts/app-to-monitor
 
-# DB params
-DB_NAME	?= $(PGDATABASE)
-DB_USER	?= $(PGUSER)
-DB_PASSWORD	?= $(PGPASSWORD)
-#
 DB_SECRET_NAME ?= secret-database-to-integrity-sum
 
 ## Runs all of the required cleaning and verification targets.
