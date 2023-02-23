@@ -194,5 +194,8 @@ make test
 golangci-lint run
 ```
 
+## Including Bee2 library
+Find more details in the [Readme](internal/ffi/bee2/Readme.md).
+
 ## License
 This project uses the MIT software license. See [full license file](https://github.com/ScienceSoft-Inc/integrity-sum/blob/main/LICENSE)
