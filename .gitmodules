@@ -1,0 +1,3 @@
+[submodule "bee2"]
+	path = bee2
+	url = git@github.com:agievich/bee2.git
