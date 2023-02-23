@@ -58,14 +58,19 @@ int bsumHashFile(octet hash[], size_t hid, const char* filename)
 	}
 	fclose(fp);
 	hid ? bashHashStepG(hash, hid / 8, state) : beltHashStepG(hash, state);
+
+	// printf("-DEBUG: bsumHashFile(): hash: [ ");
+	// for (int i=0; i<64; i++) {
+	// 	printf("%d ", hash[i]);
+	// }
+	// printf(" ]\n");
+
 	return 0;
 }
 */
 import "C"
 
 import (
-	"encoding/hex"
-	"fmt"
 	"unsafe"
 
 	"github.com/sirupsen/logrus"
@@ -75,59 +80,31 @@ import (
 const (
 	// The depth (or strench) of algorithm. The valid values are 32..512 with
 	// step 32.
-	HID int = 128
+	HID C.ulong = 256
 	// The default value for the algorithm is 64. But it may not use all the
 	// memory. Real usage depends on HID value and calculates as HID/8.
-	HASHSIZE = 16
-	// Bytes, len of block for data processing
-	BLOCKSIZE = 4096
+	HashSize = 64
 )
 
 // Bee2HashFile returns hash of fname file
-func Bee2HashFile(fname string, log *logrus.Logger) (string, error) {
+func Bee2HashFile(fname string, log *logrus.Logger) string {
 	fnameC := C.CString(fname)
 	defer C.free(unsafe.Pointer(fnameC))
 
-	var buf [HASHSIZE]byte
+	var buf [HashSize]byte
 	hashC := C.CBytes(buf[:])
 	defer C.free(hashC)
 
-	arr := (*C.uchar)(hashC)
-	errCode := C.bsumHashFile(arr, C.ulong(HID), fnameC)
-	if int(errCode) != 0 {
-		return "", fmt.Errorf("file not found")
-	}
-	bytesFromC := C.GoBytes(unsafe.Pointer(arr), HASHSIZE)
+	arr64 := (*C.uchar)(hashC)
+	C.bsumHashFile(arr64, HID, fnameC)
 
-	return hex.EncodeToString(bytesFromC), nil
-}
+	bytesFromC := C.GoBytes(unsafe.Pointer(arr64), HashSize)
+	hash := string(bytesFromC)
+	log.WithFields(logrus.Fields{
+		"name":          fname,
+		"hash (string)": hash,
+		"hash (bytes)":  []byte(hash),
+	}).Debug("file")
 
-func (a *bee2) bashHashStart() {
-	stateC := C.CBytes(a.state)
-	defer C.free(stateC)
-
-	C.bashHashStart(stateC, C.ulong(a.hid/2))
-	copy(a.state, C.GoBytes(stateC, BLOCKSIZE))
-}
-
-func (a *bee2) bashHashStepH() {
-	stateC := C.CBytes(a.state)
-	defer C.free(stateC)
-
-	bufC := C.CBytes(a.data)
-	defer C.free(bufC)
-
-	C.bashHashStepH(bufC, C.ulong(a.n), stateC)
-	copy(a.state, C.GoBytes(stateC, BLOCKSIZE))
-}
-
-func (a *bee2) bashHashStepG() {
-	stateC := C.CBytes(a.state)
-	defer C.free(stateC)
-
-	hashC := C.CBytes(a.hash)
-	defer C.free(hashC)
-
-	C.bashHashStepG((*C.uchar)(hashC), C.ulong(a.hid/8), stateC)
-	copy(a.hash, C.GoBytes(hashC, HASHSIZE))
+	return hash
 }

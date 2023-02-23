@@ -203,8 +203,6 @@ golangci-lint run
 ```
 
 ## Including Bee2 library
-Use the Makefile target `bee2-lib` to build static and shared binary for the bee2 library.
-
 Find more details in the [Readme](internal/ffi/bee2/Readme.md).
 
 ## License
