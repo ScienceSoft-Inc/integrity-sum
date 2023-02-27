@@ -9,6 +9,7 @@ Quick build:
     ```bash
     $ mkdir -p bee2/build
     $ cmake -S bee2 -B bee2/build
+    $ make -C bee2/build
     ```
 - target library (shared and static binary) will be placed at: `./bee2/build/src` dir.
 

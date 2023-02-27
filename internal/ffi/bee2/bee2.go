@@ -65,6 +65,8 @@ func (a *bee2) Write(p []byte) (n int, err error) {
 	return
 }
 
+// Sum appends the current hash to b and returns the resulting slice.
+// It does not change the underlying hash state.
 // Hash interface.
 func (a *bee2) Sum(in []byte) []byte {
 	hash := a.checkSum()
@@ -76,6 +78,7 @@ func (a *bee2) checkSum() []byte {
 	return a.hash
 }
 
+// Reset resets the Hash to its initial state.
 // Hash interface.
 func (a *bee2) Reset() {
 	emptyHash := [HASHSIZE]byte{}
@@ -87,8 +90,13 @@ func (a *bee2) Reset() {
 	a.bashHashStart()
 }
 
+// Size returns the number of bytes Sum will return.
 // Hash interface.
 func (a *bee2) Size() int { return a.hashSize }
 
+// BlockSize returns the hash's underlying block size.
+// The Write method must be able to accept any amount
+// of data, but it may operate more efficiently if all writes
+// are a multiple of the block size.
 // Hash interface.
 func (a *bee2) BlockSize() int { return BLOCKSIZE }
