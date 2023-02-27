@@ -138,3 +138,10 @@ linux-64bit:
 MacOS:
 	echo "Building for MacOS X 64-bit"
 	GOOS=darwin GOARCH=amd64 go build -o bin/${BINARY_NAME}_macos cmd/k8s-integrity-sum/main.go
+
+# build bee2 library
+.PHONY: bee2-lib
+bee2-lib:
+	@mkdir -p bee2/build
+	@cmake -S bee2 -B bee2/build
+	@make -C bee2/build

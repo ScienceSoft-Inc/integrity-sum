@@ -73,10 +73,15 @@ func (hs HashService) CreateHash(path string) (*api.HashData, error) {
 	}(file)
 
 	h := hasher.NewHashSum(hs.alg)
-	_, err = io.Copy(h, file)
+	wbytes, err := io.Copy(h, file)
 	if err != nil {
+		hs.logger.Errorf("io.Copy(): %v", err)
 		return nil, err
 	}
+	hs.logger.WithFields(logrus.Fields{
+		"file":  path,
+		"bytes": wbytes,
+	}).Debug("written bytes")
 	res := hex.EncodeToString(h.Sum(nil))
 	outputHashSum := api.HashData{
 		Hash:         res,
