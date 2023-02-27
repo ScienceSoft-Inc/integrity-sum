@@ -27,12 +27,16 @@ func main() {
 	// Only for testing bee2 alg. Do not merge
 	// go run ./cmd/k8s-integrity-sum
 	{
-		fn := "./go.sum"
+		fn := "./go.bad_file"
 		p, err := filepath.Abs(fn)
 		if err != nil {
 			logger.Fatalf("filepath.Abs(fn): %v", err)
 		}
-		logger.Infof("- whole file hash : %v: %v", filepath.Base(p), bee2.Bee2HashFile(p, logger))
+		hash, err := bee2.Bee2HashFile(p, logger)
+		if err != nil {
+			logger.Fatalf("Bee2HashFile() file %s err: %v", filepath.Base(p), err)
+		}
+		logger.Infof("- whole file hash : %v: %v", filepath.Base(p), hash)
 
 		// hasher interface
 		repository := repositories.NewAppRepository(logger, new(sql.DB))
