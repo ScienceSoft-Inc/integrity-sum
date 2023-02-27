@@ -65,6 +65,7 @@ import "C"
 
 import (
 	"encoding/hex"
+	"fmt"
 	"unsafe"
 
 	"github.com/sirupsen/logrus"
@@ -83,7 +84,7 @@ const (
 )
 
 // Bee2HashFile returns hash of fname file
-func Bee2HashFile(fname string, log *logrus.Logger) string {
+func Bee2HashFile(fname string, log *logrus.Logger) (string, error) {
 	fnameC := C.CString(fname)
 	defer C.free(unsafe.Pointer(fnameC))
 
@@ -92,10 +93,13 @@ func Bee2HashFile(fname string, log *logrus.Logger) string {
 	defer C.free(hashC)
 
 	arr := (*C.uchar)(hashC)
-	C.bsumHashFile(arr, C.ulong(HID), fnameC)
+	errCode := C.bsumHashFile(arr, C.ulong(HID), fnameC)
+	if int(errCode) != 0 {
+		return "", fmt.Errorf("file not found")
+	}
 	bytesFromC := C.GoBytes(unsafe.Pointer(arr), HASHSIZE)
 
-	return hex.EncodeToString(bytesFromC)
+	return hex.EncodeToString(bytesFromC), nil
 }
 
 func (a *bee2) bashHashStart() {
