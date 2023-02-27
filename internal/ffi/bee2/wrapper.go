@@ -58,13 +58,6 @@ int bsumHashFile(octet hash[], size_t hid, const char* filename)
 	}
 	fclose(fp);
 	hid ? bashHashStepG(hash, hid / 8, state) : beltHashStepG(hash, state);
-
-	// printf("-DEBUG: bsumHashFile(): hash: [ ");
-	// for (int i=0; i<64; i++) {
-	// 	printf("%d ", hash[i]);
-	// }
-	// printf(" ]\n");
-
 	return 0;
 }
 */
@@ -86,7 +79,7 @@ const (
 	// memory. Real usage depends on HID value and calculates as HID/8.
 	HASHSIZE = 16
 	// Bytes, len of block for data processing
-	BLOCKSIZE = 4096 // 4096
+	BLOCKSIZE = 4096
 )
 
 // Bee2HashFile returns hash of fname file
@@ -100,14 +93,7 @@ func Bee2HashFile(fname string, log *logrus.Logger) string {
 
 	arr := (*C.uchar)(hashC)
 	C.bsumHashFile(arr, C.ulong(HID), fnameC)
-
 	bytesFromC := C.GoBytes(unsafe.Pointer(arr), HASHSIZE)
-	hash := string(bytesFromC)
-	log.WithFields(logrus.Fields{
-		"name":          fname,
-		"hash (string)": hash,
-		"hash (bytes)":  []byte(hash),
-	}).Debug("file")
 
 	return hex.EncodeToString(bytesFromC)
 }
@@ -117,7 +103,7 @@ func (a *bee2) bashHashStart() {
 	defer C.free(stateC)
 
 	C.bashHashStart(stateC, C.ulong(a.hid/2))
-	a.state = C.GoBytes(stateC, BLOCKSIZE)
+	copy(a.state, C.GoBytes(stateC, BLOCKSIZE))
 }
 
 func (a *bee2) bashHashStepH() {
@@ -128,7 +114,7 @@ func (a *bee2) bashHashStepH() {
 	defer C.free(bufC)
 
 	C.bashHashStepH(bufC, C.ulong(a.n), stateC)
-	a.state = C.GoBytes(stateC, BLOCKSIZE)
+	copy(a.state, C.GoBytes(stateC, BLOCKSIZE))
 }
 
 func (a *bee2) bashHashStepG() {
@@ -139,5 +125,5 @@ func (a *bee2) bashHashStepG() {
 	defer C.free(hashC)
 
 	C.bashHashStepG((*C.uchar)(hashC), C.ulong(a.hid/8), stateC)
-	a.hash = C.GoBytes(hashC, HASHSIZE)
+	copy(a.hash, C.GoBytes(hashC, HASHSIZE))
 }
