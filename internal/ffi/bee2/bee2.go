@@ -2,7 +2,13 @@ package bee2
 
 import (
 	"hash"
+
+	"github.com/ScienceSoft-Inc/integrity-sum/pkg/hasher"
 )
+
+func init() {
+	hasher.RegisterAlg("BEE2", NewDefault)
+}
 
 type bee2 struct {
 	hid      int
@@ -17,6 +23,10 @@ type bee2 struct {
 type Option func(*bee2)
 
 var _ hash.Hash = (*bee2)(nil)
+
+func NewDefault() hash.Hash {
+	return New()
+}
 
 func New(opts ...Option) hash.Hash {
 	objRef := &bee2{

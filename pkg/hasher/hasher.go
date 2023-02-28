@@ -6,29 +6,45 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"hash"
-
-	"github.com/ScienceSoft-Inc/integrity-sum/internal/ffi/bee2"
 )
 
-// NewHashSum takes a hashing algorithm as input and returns a hash sum with other data or an error
-func NewHashSum(alg string) hash.Hash {
+type InitFunc func() hash.Hash
 
-	switch alg {
-	case "MD5":
-		return md5.New()
-	case "SHA1":
-		return sha1.New()
-	case "SHA224":
-		return sha256.New224()
-	case "SHA384":
-		return sha512.New384()
-	case "SHA512":
-		return sha512.New()
-	case "BEE2":
-		return bee2.New()
-	case "SHA256":
-		fallthrough
-	default:
+func init() {
+	// default algs
+	RegisterAlg("MD5", md5.New)
+	RegisterAlg("SHA1", sha1.New)
+	RegisterAlg("SHA224", sha256.New)
+	RegisterAlg("SHA256", sha256.New)
+	RegisterAlg("SHA384", sha512.New)
+	RegisterAlg("SHA512", sha512.New)
+}
+
+var algs = make(map[string]InitFunc)
+
+// Registers init func for @name hasher
+func RegisterAlg(name string, f InitFunc) bool {
+	algs[name] = f
+	// fmt.Printf("algorithm %q has been registered\n", name)
+	return true
+}
+
+// TODO: if required
+// func RegisteredAlgs() []string {
+// 	keys := make([]string, 0, len(algs))
+// 	for k := range algs {
+// 		keys = append(keys, k)
+// 	}
+// 	return keys
+// }
+
+// NewHashSum takes a hashing algorithm name as input and returns registered (or
+// default, if name is not defined) hasher for this algorithm.
+func NewHashSum(algName string) hash.Hash {
+	initFunc, ok := algs[algName]
+	if !ok {
+		// returns default, sha256
 		return sha256.New()
 	}
+	return initFunc()
 }

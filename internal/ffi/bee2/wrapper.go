@@ -67,8 +67,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"unsafe"
-
-	"github.com/sirupsen/logrus"
 )
 
 // The bee2 configuration parameters
@@ -84,7 +82,7 @@ const (
 )
 
 // Bee2HashFile returns hash of fname file
-func Bee2HashFile(fname string, log *logrus.Logger) (string, error) {
+func Bee2HashFile(fname string) (string, error) {
 	fnameC := C.CString(fname)
 	defer C.free(unsafe.Pointer(fnameC))
 
