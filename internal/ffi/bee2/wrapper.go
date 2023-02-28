@@ -127,5 +127,5 @@ func (a *bee2) bashHashStepG() {
 	defer C.free(hashC)
 
 	C.bashHashStepG((*C.uchar)(hashC), C.ulong(a.hid/8), stateC)
-	copy(a.hash, C.GoBytes(hashC, HASHSIZE))
+	copy(a.hash, C.GoBytes(hashC, C.int(a.hashSize)))
 }
