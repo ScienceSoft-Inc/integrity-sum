@@ -4,7 +4,9 @@ RELEASE_NAME_DB     ?= db
 RELEASE_NAME_APP    := app
 RELEASE_NAME_SYSLOG := rsyslog
 
-SYSLOG_ENABLED ?= false
+# build configuration options
+SYSLOG_ENABLED  ?= false
+BEE2_ENABLED    ?= false
 
 GIT_COMMIT      := $(shell git describe --tags --long --dirty=-unsupported --always || echo pre-commit)
 IMAGE_VERSION   ?= $(GIT_COMMIT)
@@ -39,18 +41,18 @@ HELM_CHART_SYSLOG   := helm-charts/rsyslog
 EMPTY :=
 SPACE := $(EMPTY) $(EMPTY)
 COMMA := ,
+
 join-with = $(subst $(SPACE),$1,$(strip $2))
 
 # tags defining
-BEE2 ?= false
-ifeq ($(BEE2), true)
+ifeq ($(BEE2_ENABLED), true)
 TAGLIST += bee2
 endif
 
 # TAGLIST += test
 
 TAGS_JOINED := $(call join-with,$(COMMA),$(TAGLIST))
-TAGS        :=$(if $(strip $(TAGS_JOINED)),-tags $(TAGS_JOINED),)
+TAGS        := $(if $(strip $(TAGS_JOINED)),-tags $(TAGS_JOINED),)
 
 ## Runs all of the required cleaning and verification targets.
 .PHONY : all

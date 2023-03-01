@@ -94,15 +94,20 @@ If you want to generate binaries for different platforms:
 make compile
 ```
 ### Manual start
+First of all, get a build image with `make buildtools`. It will be used to compile source code (Go & C/C++).
+
 Set some environment variables to configure DB params:
 - DB_PASSWORD
 - DB_USER
 - DB_NAME
 
-optional:
-- SYSLOG_ENABLED=true if syslog functionality is required 
-
 They will be stored in a secret on the cluster during deployment and used to create application DB and manage connections to it.
+
+optional:
+- SYSLOG_ENABLED=true, if syslog functionality is required;
+- BEE2_ENABLED=true, if bee2 hash algorithm is required.
+
+Build app: `make build`
 
 Minikube start:
 ```
@@ -112,6 +117,7 @@ Build docker image:
 ```
 make docker
 ```
+If you use `kind` instead of `minikube`, you may do `make kind-load-images` to preload image.
 
 Then update the on-disk dependencies to mirror Chart.yaml.
 ```
@@ -136,6 +142,8 @@ Set `SYSLOG_ENABLED` ENV to true then run:
     make helm-app
     ```
 
+Use `make purge-db` to completle remove db container and it storage.
+
 ## Pay attention!
 If you want to use a hasher-sidecar, then you need to specify the following data in your deployment:
 Pod annotations:
@@ -150,7 +158,7 @@ Share process namespace should be enabled.
 ## Troubleshooting
 Sometimes you may find that pod is injected with sidecar container as expected, check the following items:
 
-1) The pod is in running state with `hasher-sidecar` sidecar container injected and no error logs.
+1) The pod is in running state with `integrity` sidecar container injected and no error logs.
 2) Check if the application pod has the correct annotations as described above.
 ___________________________
 ## :notebook_with_decorative_cover: Godoc extracts and generates documentation for Go programs
@@ -202,10 +210,11 @@ make test
 golangci-lint run
 ```
 
-## Including Bee2 library
-Use the Makefile target `bee2-lib` to build static and shared binary for the bee2 library.
+## Including Bee2 library into the application
+Use the Makefile target `bee2-lib` to build standalone static and shared binary for the bee2 library.
+Use the env variable `BEE2_ENABLED=true` with `make build` to include bee2 library into the application. Then deployment may be updated with `--algorithm=BEE2` arg to select bee2 hashing algorithm.
 
-Find more details in the [Readme](internal/ffi/bee2/Readme.md).
+Find more details about bee2 tools in the [Readme](internal/ffi/bee2/Readme.md).
 
 ## License
 This project uses the MIT software license. See [full license file](https://github.com/ScienceSoft-Inc/integrity-sum/blob/main/LICENSE)
