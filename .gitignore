@@ -16,4 +16,5 @@
 .vscode
 logs
 tmp
-vendor/
+vendor
+bin

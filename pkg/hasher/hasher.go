@@ -5,6 +5,7 @@ import (
 	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/sha512"
+	"fmt"
 	"hash"
 )
 
@@ -25,18 +26,9 @@ var algs = make(map[string]InitFunc)
 // Registers init func for @name hasher
 func RegisterAlg(name string, f InitFunc) bool {
 	algs[name] = f
-	// fmt.Printf("algorithm %q has been registered\n", name)
+	fmt.Printf("algorithm %q has been registered\n", name)
 	return true
 }
-
-// TODO: if required
-// func RegisteredAlgs() []string {
-// 	keys := make([]string, 0, len(algs))
-// 	for k := range algs {
-// 		keys = append(keys, k)
-// 	}
-// 	return keys
-// }
 
 // NewHashSum takes a hashing algorithm name as input and returns registered (or
 // default, if name is not defined) hasher for this algorithm.

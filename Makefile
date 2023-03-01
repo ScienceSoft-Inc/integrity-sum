@@ -1,24 +1,56 @@
-VERSION_MOCKGEN=v1.6.0
+VERSION_MOCKGEN := v1.6.0
 ## You can change these values
-RELEASE_NAME_DB ?= db
-RELEASE_NAME_APP=app
-RELEASE_NAME_SYSLOG=rsyslog
+RELEASE_NAME_DB     ?= db
+RELEASE_NAME_APP    := app
+RELEASE_NAME_SYSLOG := rsyslog
 
 SYSLOG_ENABLED ?= false
 
-GIT_COMMIT := $(shell git describe --tags --long --dirty=-unsupported --always || echo pre-commit)
-IMAGE_VERSION ?= $(GIT_COMMIT)
+GIT_COMMIT      := $(shell git describe --tags --long --dirty=-unsupported --always || echo pre-commit)
+IMAGE_VERSION   ?= $(GIT_COMMIT)
 
-BINARY_NAME=integritySum
-IMAGE_NAME?=integrity
-FULL_IMAGE_NAME=$(IMAGE_NAME):$(IMAGE_VERSION)
+BIN             := bin
+BINARY          := $(BIN)/integritySum
+IMAGE_NAME      ?= integrity
+FULL_IMAGE_NAME := $(IMAGE_NAME):$(IMAGE_VERSION)
+
+# build options
+CUR_DIR     := $(shell pwd)
+REPO        := github.com/ScienceSoft-Inc/integrity-sum
+SRCROOT     := /go/src/$(REPO)
+SRC_APP     := cmd/k8s-integrity-sum
+PACKAGE_APP := $(REPO)/$(SRC_APP)
+
+BUILDTOOL_IMAGE := buildtools:latest
+DOCKER_RUNNER   := docker run --rm -v $(CUR_DIR):$(SRCROOT) -w $(SRCROOT) -u `id -u`:`id -g`
+GO_CACHE        := $(BIN)/go-cache
+GO_BUILD_FLAGS  ?= -pkgdir $(SRCROOT)/$(GO_CACHE) -v -ldflags "-linkmode external -extldflags '-static' -s -w"
+GOBUILD         := $(DOCKER_RUNNER) -e CGO_ENABLED=1 -e GO111MODULE=off -e GOCACHE=$(SRCROOT)/$(GO_CACHE) $(BUILDTOOL_IMAGE) go build $(GO_BUILD_FLAGS)
+CCBUILD         := $(DOCKER_RUNNER) $(BUILDTOOL_IMAGE) gcc
+CMAKETOOL       := $(DOCKER_RUNNER) $(BUILDTOOL_IMAGE) cmake
+MAKETOOL        := $(DOCKER_RUNNER) $(BUILDTOOL_IMAGE) make
 
 # helm chart path
-HELM_CHART_DB = helm-charts/database-to-integrity-sum
-HELM_CHART_APP = helm-charts/app-to-monitor
-HELM_CHART_SYSLOG = helm-charts/rsyslog
+HELM_CHART_DB       := helm-charts/database-to-integrity-sum
+HELM_CHART_APP      := helm-charts/app-to-monitor
+HELM_CHART_SYSLOG   := helm-charts/rsyslog
 
-DB_SECRET_NAME ?= $(IMAGE_NAME)
+#
+EMPTY :=
+SPACE := $(EMPTY) $(EMPTY)
+COMMA := ,
+join-with = $(subst $(SPACE),$1,$(strip $2))
+
+# tags defining
+BEE2 ?= false
+ifeq ($(BEE2), true)
+TAGLIST += bee2
+endif
+
+# TAGLIST += test
+
+TAGS_JOINED := $(call join-with,$(COMMA),$(TAGLIST))
+TAGS        :=$(if $(strip $(TAGS_JOINED)),-tags $(TAGS_JOINED),)
 
 ## Runs all of the required cleaning and verification targets.
 .PHONY : all
@@ -55,16 +87,14 @@ dev-dependencies: minikube update docker helm-all
 minikube:
 	minikube start
 
-.PHONY : docker
+.PHONY: docker
 docker:
-	@eval $$(minikube docker-env) ;\
-    docker image build -t $(FULL_IMAGE_NAME) -t $(IMAGE_NAME):latest .
+	@docker build -t $(FULL_IMAGE_NAME) -t $(IMAGE_NAME):latest -f ./docker/Dockerfile .
 
 .PHONY : helm-all
 helm-all: helm-database helm-app
 
 helm-database:
-	# @helm dependency update $(HELM_CHART_DB)
 	@helm upgrade -i ${RELEASE_NAME_DB} \
 		--set global.postgresql.auth.database=$(DB_NAME) \
 		--set global.postgresql.auth.username=$(DB_USER) \
@@ -88,7 +118,6 @@ helm-syslog:
 
 .PHONY: kind-load-images
 kind-load-images:
-	kind load docker-image hasher:latest
 	@kind load docker-image $(FULL_IMAGE_NAME)
 
 DB_PVC_NAME=$(shell kubectl get pvc | grep data-$(RELEASE_NAME_DB)-postgresql | cut -d " " -f1)
@@ -105,52 +134,59 @@ tidy: ## Cleans the Go module.
 	@echo "==> Tidying module"
 	@go mod tidy
 
-.PHONY : build
-build:
-	go build -o ${BINARY_NAME} ./cmd/k8s-integrity-sum
+.PHONY: build
+build: dirs
+	@$(GOBUILD) -o ${BINARY} $(TAGS) $(PACKAGE_APP)
 
 .PHONY : run
 run: build
-	./${BINARY_NAME}
+	./${BINARY}
 
 ## Remove an installed Helm deployment and stop minikube.
 stop:
-	helm uninstall  ${RELEASE_NAME_APP}
-	helm uninstall  ${RELEASE_NAME_DB}
+	helm uninstall ${RELEASE_NAME_APP}
+	helm uninstall ${RELEASE_NAME_DB}
 	minikube stop
 
 ## Cleaning build cache.
 .PHONY : clean
 clean:
 	go clean
-	rm ${BINARY_NAME}
+	rm ${BINARY}
 
 ## Compile the binary.
 compile-all: windows-32bit windows-64bit linux-32bit linux-64bit MacOS
 
 windows-32bit:
 	echo "Building for Windows 32-bit"
-	GOOS=windows GOARCH=386 go build -o bin/${BINARY_NAME}_32bit.exe cmd/k8s-integrity-sum/main.go
+	GOOS=windows GOARCH=386 go build $(TAGS) -o ${BINARY}_32bit.exe ./$(SRC_APP)
 
 windows-64bit:
 	echo "Building for Windows 64-bit"
-	GOOS=windows GOARCH=amd64 go build -o bin/${BINARY_NAME}_64bit.exe cmd/k8s-integrity-sum/main.go
+	GOOS=windows GOARCH=amd64 go build $(TAGS) -o ${BINARY}_64bit.exe ./$(SRC_APP)
 
 linux-32bit:
 	echo "Building for Linux 32-bit"
-	GOOS=linux GOARCH=386 go build -o bin/${BINARY_NAME}_32bit cmd/k8s-integrity-sum/main.go
+	GOOS=linux GOARCH=386 go build $(TAGS) -o ${BINARY}_32bit ./$(SRC_APP)
 
 linux-64bit:
 	echo "Building for Linux 64-bit"
-	GOOS=linux GOARCH=amd64 go build -o bin/${BINARY_NAME} cmd/k8s-integrity-sum/main.go
+	GOOS=linux GOARCH=amd64 go build $(TAGS) -o ${BINARY} ./$(SRC_APP)
 
 MacOS:
 	echo "Building for MacOS X 64-bit"
-	GOOS=darwin GOARCH=amd64 go build -o bin/${BINARY_NAME}_macos cmd/k8s-integrity-sum/main.go
+	GOOS=darwin GOARCH=amd64 go build $(TAGS) -o ${BINARY}_macos ./$(SRC_APP)
 
-# build bee2 library
+# build bee2 library within container
 .PHONY: bee2-lib
 bee2-lib:
-	@mkdir -p bee2/build
-	@cmake -S bee2 -B bee2/build
-	@make -C bee2/build
+	@$(CMAKETOOL) -S ./bee2 -B ./bee2/build
+	@$(MAKETOOL) -C ./bee2/build
+
+.PHONY: dirs
+dirs:
+	@mkdir -p bee2/build $(BIN)
+
+.PHONY: buildtools
+buildtools:
+	@docker build -f ./docker/Dockerfile.build -t buildtools:latest ./docker

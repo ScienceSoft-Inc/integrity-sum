@@ -1,3 +1,5 @@
+//go:build bee2
+
 package bee2
 
 /*
