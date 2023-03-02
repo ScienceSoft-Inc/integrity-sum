@@ -24,9 +24,13 @@ type bee2 struct {
 
 type Option func(*bee2)
 
-var _ hash.Hash = (*bee2)(nil)
+var (
+	_ hash.Hash         = (*bee2)(nil)
+	_ hasher.FileHasher = (*bee2)(nil)
+)
 
 func NewDefault() hash.Hash {
+	// TODO: hid, hashSize from args
 	return New()
 }
 
@@ -104,3 +108,8 @@ func (a *bee2) Size() int { return a.hashSize }
 
 // Hash interface.
 func (a *bee2) BlockSize() int { return BLOCKSIZE }
+
+// hasher.FileHasher interface
+func (a *bee2) HashFile(fileName string) (string, error) {
+	return Bee2HashFile(fileName)
+}

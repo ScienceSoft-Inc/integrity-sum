@@ -75,10 +75,10 @@ import (
 const (
 	// The depth (or strench) of algorithm. The valid values are 32..512 with
 	// step 32.
-	HID int = 128
+	HID int = 256
 	// The default value for the algorithm is 64. But it may not use all the
 	// memory. Real usage depends on HID value and calculates as HID/8.
-	HASHSIZE = 16
+	HASHSIZE = 32
 	// Bytes, len of block for data processing
 	BLOCKSIZE = 4096
 )

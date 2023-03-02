@@ -27,10 +27,13 @@ BUILDTOOL_IMAGE := buildtools:latest
 DOCKER_RUNNER   := docker run --rm -v $(CUR_DIR):$(SRCROOT) -w $(SRCROOT) -u `id -u`:`id -g`
 GO_CACHE        := $(BIN)/go-cache
 GO_BUILD_FLAGS  ?= -pkgdir $(SRCROOT)/$(GO_CACHE) -v -ldflags "-linkmode external -extldflags '-static' -s -w"
-GOBUILD         := $(DOCKER_RUNNER) -e CGO_ENABLED=1 -e GO111MODULE=off -e GOCACHE=$(SRCROOT)/$(GO_CACHE) $(BUILDTOOL_IMAGE) go build $(GO_BUILD_FLAGS)
 CCBUILD         := $(DOCKER_RUNNER) $(BUILDTOOL_IMAGE) gcc
 CMAKETOOL       := $(DOCKER_RUNNER) $(BUILDTOOL_IMAGE) cmake
 MAKETOOL        := $(DOCKER_RUNNER) $(BUILDTOOL_IMAGE) make
+BUILDER         := $(DOCKER_RUNNER) -e CGO_ENABLED=1 -e GO111MODULE=off -e GOCACHE=$(SRCROOT)/$(GO_CACHE) $(BUILDTOOL_IMAGE)
+GOBUILD         := $(BUILDER) go build $(GO_BUILD_FLAGS)
+GOTEST          := $(BUILDER) go test -v
+
 
 # helm chart path
 HELM_CHART_DB       := helm-charts/database-to-integrity-sum
@@ -74,10 +77,16 @@ generate:
 	@echo "==> Mocks have been generated"
 
 ## Runs the test suite with mocks enabled.
-.PHONY : test
-test: generate
-	go test -v ./internal/core/services/hash_test.go
-	go test -v ./pkg/hasher
+.PHONY: test
+test: generate test-bee2
+	@$(GOTEST) ./internal/core/services \
+	 	./pkg/hasher
+
+.PHONY: test-bee2
+test-bee2:
+ifeq ($(BEE2_ENABLED), true)
+	@$(GOTEST) -tags bee2 ./internal/ffi/bee2
+endif
 
 ## Downloads the necessesary dev dependencies.
 .PHONY : dev-dependencies
