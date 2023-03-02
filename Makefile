@@ -91,6 +91,7 @@ minikube:
 
 .PHONY: docker
 docker:
+	@eval $$(minikube docker-env) ;\
 	@docker build -t $(FULL_IMAGE_NAME) -t $(IMAGE_NAME):latest -f ./docker/Dockerfile .
 
 .PHONY : helm-all
