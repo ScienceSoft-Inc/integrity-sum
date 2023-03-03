@@ -14,26 +14,25 @@ import (
 	"github.com/ScienceSoft-Inc/integrity-sum/pkg/hasher"
 )
 
-const fname = "../../../go.sum"
+const testFileName = "../../../.editorconfig"
 
 var expectedValues = map[string]string{
 	// standart
-	"SHA256": "88370d2c5fc8452a05ad7382c8df5902a76f27639970d059ef44d1c66e3267f2",
+	"SHA256": "5a56cf93d0987654cd2cad1b6616e1f413b0984c59e56470f450176246e42e47",
 	// bee2 library
-	// "BEE2": "0c7bc5135b916cf99acee975062f751f", // hid:16
-	"BEE2": "8338f17aa18424e1ed3c1e3c5071149505af67ce164d6e81a15c023621fe2b02", // hid:32
+	"BEE2": "473c1b38fbd2f1e6480776370c56a317a4702e2742c28b27679cba013678529f",
 }
 
 func TestBee2Hasher(t *testing.T) {
 	log := logrus.New()
-	absName, err := filepath.Abs(fname)
+	absName, err := filepath.Abs(testFileName)
 	assert.NoError(t, err)
 
 	for algName, want := range expectedValues {
 		h := hasher.NewFileHasher(algName, log)
 		hash, err := h.HashFile(absName)
 		assert.NoError(t, err)
-		assert.Equal(t, want, hash)
+		assert.Equal(t, want, hash, "alg: %v", algName)
 	}
 
 	// bee2 with Go Hash interface
