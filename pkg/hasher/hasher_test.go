@@ -1,53 +1,69 @@
 package hasher
 
 import (
+	"bytes"
+	"fmt"
+	"os"
 	"testing"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
 
-const testFileName = "../../.editorconfig"
+var (
+	testData       = bytes.NewBufferString("some test data for hashing")
+	expectedValues = map[string]string{
+		"MD5":    "7e28b47200542b8a10a949493dbf8d89",
+		"SHA1":   "5c2587b147d1674472623579b5f6248bbf196603",
+		"SHA224": "9a9d024f73dd10793f201d5cf348cf42f6c9709d070a2a100de54fbe",
+		"SHA384": "271afdf2c8143d1a02d646a67d9767a53a0982820b6839d218e62c78bf7299e58841fe5c943606edcc4d1d7b76a58bc4",
+		"SHA512": "60092d6bb71c0b0e7426d97c5291e8548eb776358b1d524da6b2f5af41fa2d255e812c82c2352276f55336ae2aba6c8784ccd1f9099b4e5cb3bb82bf3f7ae357",
+		"SHA256": "2b55aa83baaad32c386dab48ff3c6df02784406a223e8aec570782c9e7bd851d",
+	}
+)
 
-var expectedValues = map[string]string{
-	// $ md5sum .editorconfig
-	// f670b69b3d123fa53e3e1848a0b6bf6b  .editorconfig
-	"MD5": "f670b69b3d123fa53e3e1848a0b6bf6b",
+func TestHasher(t *testing.T) {
+	fileName, err := createTmpFile(testData)
+	assert.NoError(t, err, "test file creation")
+	defer func() {
+		os.Remove(fileName)
+		fmt.Println("file removed:", fileName)
+	}()
+	fmt.Println("file created:", fileName)
 
-	"SHA1": "40ed457cdd863b52153246992298e4c10b4c7833",
-
-	// $ sha224sum .editorconfig
-	// 91aab9267c12bf42be3ae87f15afcb1adc52e6301076f5094c843b78  .editorconfig
-	"SHA224": "91aab9267c12bf42be3ae87f15afcb1adc52e6301076f5094c843b78",
-
-	"SHA384": "80f04572e3078da6d775adc7de9cea8af9c141fd12bd232fc22c43bc27f67559c34d20b666514e7bdfa68cd11c2e45e7",
-
-	// $ sha512sum .editorconfig
-	// dda4a0dd082392a0447afe99dc67b4b39170dd84731986015b047e2e70237232a276e5899aaaca544103f34b61ddfbb91e0ed57b76afe80d2bf65e982a8e7724  .editorconfig
-	"SHA512": "dda4a0dd082392a0447afe99dc67b4b39170dd84731986015b047e2e70237232a276e5899aaaca544103f34b61ddfbb91e0ed57b76afe80d2bf65e982a8e7724",
-
-	// $ sha256sum .editorconfig
-	// 5a56cf93d0987654cd2cad1b6616e1f413b0984c59e56470f450176246e42e47  .editorconfig
-	"SHA256": "5a56cf93d0987654cd2cad1b6616e1f413b0984c59e56470f450176246e42e47",
+	testHashAlgs(t, fileName)
+	testRepeated(t, fileName)
 }
 
-func TestHashAlgs(t *testing.T) {
+func testHashAlgs(t *testing.T, fileName string) {
 	for alg := range expectedValues {
-		hash, err := NewFileHasher(alg, logrus.New()).HashFile(testFileName)
+		hash, err := NewFileHasher(alg, logrus.New()).HashFile(fileName)
 		assert.NoError(t, err)
 		assert.Equal(t, expectedValues[alg], hash, "alg: %s", alg)
 	}
 }
 
-func TestRepeated(t *testing.T) {
+func testRepeated(t *testing.T, fileName string) {
 	alg := "SHA256"
 	hasher := NewFileHasher(alg, logrus.New())
 	// 1
-	hash, err := hasher.HashFile(testFileName)
+	hash, err := hasher.HashFile(fileName)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedValues[alg], hash, "alg: %s", alg)
 	// 2
-	hash, err = hasher.HashFile(testFileName)
+	hash, err = hasher.HashFile(fileName)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedValues[alg], hash, "alg: %s", alg)
+}
+
+// Creates temporary file with data in @buf
+func createTmpFile(buf *bytes.Buffer) (string, error) {
+	f, err := os.CreateTemp("/tmp", "test_")
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	_, err = buf.WriteTo(f)
+	return f.Name(), err
 }
