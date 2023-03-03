@@ -73,9 +73,9 @@ func RegisterAlg(name string, f InitFunc) bool {
 	return true
 }
 
-// NewHashSum takes a hashing algorithm name as input and returns registered (or
-// default, if name is not defined) hasher for this algorithm.
-func NewHashSum(algName string) hash.Hash {
+// newHasherInstance takes a hashing algorithm name as input and returns
+// registered (or default, if name is not recognized) hasher for this algorithm.
+func newHasherInstance(algName string) hash.Hash {
 	initFunc, ok := algs[algName]
 	if !ok {
 		// returns default, sha256
@@ -88,7 +88,7 @@ func NewHashSum(algName string) hash.Hash {
 // Returns new FileHasher instance
 func NewFileHasher(algName string, log *logrus.Logger) FileHasher {
 	return &Hasher{
-		h:   NewHashSum(algName), // TODO: rename it and check that only workers call it
+		h:   newHasherInstance(algName),
 		log: log,
 	}
 }

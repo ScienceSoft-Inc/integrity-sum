@@ -16,7 +16,7 @@ import (
 
 const fname = "../../../go.sum"
 
-var testCases = map[string]string{
+var expectedValues = map[string]string{
 	// standart
 	"SHA256": "88370d2c5fc8452a05ad7382c8df5902a76f27639970d059ef44d1c66e3267f2",
 	// bee2 library
@@ -29,7 +29,7 @@ func TestBee2Hasher(t *testing.T) {
 	absName, err := filepath.Abs(fname)
 	assert.NoError(t, err)
 
-	for algName, want := range testCases {
+	for algName, want := range expectedValues {
 		h := hasher.NewFileHasher(algName, log)
 		hash, err := h.HashFile(absName)
 		assert.NoError(t, err)
@@ -46,5 +46,5 @@ func TestBee2Hasher(t *testing.T) {
 
 	hash, err := goHasher.HashData(bytes.NewReader(data))
 	assert.NoError(t, err)
-	assert.Equal(t, testCases["BEE2"], hash)
+	assert.Equal(t, expectedValues["BEE2"], hash)
 }

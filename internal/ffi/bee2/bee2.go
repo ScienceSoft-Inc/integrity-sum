@@ -30,7 +30,7 @@ var (
 )
 
 func NewDefault() hash.Hash {
-	// TODO: hid, hashSize from args
+	// TODO: take hid, hashSize from args
 	return New()
 }
 

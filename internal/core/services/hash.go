@@ -1,10 +1,7 @@
 package services
 
 import (
-	"encoding/hex"
 	"fmt"
-	"io"
-	"os"
 	"path/filepath"
 	"sync"
 
@@ -17,8 +14,9 @@ import (
 	"github.com/ScienceSoft-Inc/integrity-sum/pkg/hasher"
 )
 
+// TODO: the purpose of this service is...?
 type HashService struct {
-	Repository ports.IAppRepository
+	Repository ports.IAppRepository // TODO: why do we need it here?
 	alg        string
 	logger     *logrus.Logger
 }
@@ -38,7 +36,7 @@ func (hs HashService) WorkerPool(jobs chan string, results chan *api.HashData) {
 
 	var wg sync.WaitGroup
 	for w := 1; w <= countWorkers; w++ {
-		wg.Add(1)
+		wg.Add(1) // TODO: countWorkers
 		go hs.Worker(&wg, jobs, results)
 	}
 	defer close(results)
@@ -47,7 +45,7 @@ func (hs HashService) WorkerPool(jobs chan string, results chan *api.HashData) {
 
 // Worker gets jobs from a pipe and writes the result to stdout and database
 func (hs HashService) Worker(wg *sync.WaitGroup, jobs <-chan string, results chan<- *api.HashData) {
-	defer wg.Done()
+	defer wg.Done() // TODO: not in place
 	for j := range jobs {
 		data, err := hs.CreateHash(j)
 		if err != nil {
@@ -58,38 +56,20 @@ func (hs HashService) Worker(wg *sync.WaitGroup, jobs <-chan string, results cha
 	}
 }
 
+// TODO: is it need now?
 // CreateHash creates a new object with a hash sum
-func (hs HashService) CreateHash(path string) (*api.HashData, error) {
-	file, err := os.Open(path)
+func (hs HashService) CreateHash(fileName string) (*api.HashData, error) {
+	hash, err := hasher.NewFileHasher(hs.alg, hs.logger).HashFile(fileName)
 	if err != nil {
-		hs.logger.Errorf("can not open file %s %s", path, err)
+		hs.logger.WithError(err).WithField("fileName", fileName).Error("hashing file")
 		return nil, err
 	}
-	defer func(file *os.File) {
-		err := file.Close()
-		if err != nil {
-			hs.logger.Errorf("[HashService]Error closing file: %s", err)
-		}
-	}(file)
-
-	h := hasher.NewHashSum(hs.alg)
-	wbytes, err := io.Copy(h, file)
-	if err != nil {
-		hs.logger.Errorf("io.Copy(): %v", err)
-		return nil, err
-	}
-	hs.logger.WithFields(logrus.Fields{
-		"file":  path,
-		"bytes": wbytes,
-	}).Debug("written bytes")
-	res := hex.EncodeToString(h.Sum(nil))
-	outputHashSum := api.HashData{
-		Hash:         res,
-		FileName:     filepath.Base(path),
-		FullFilePath: path,
+	return &api.HashData{
+		Hash:         hash,
+		FileName:     filepath.Base(fileName),
+		FullFilePath: fileName,
 		Algorithm:    hs.alg,
-	}
-	return &outputHashSum, nil
+	}, nil
 }
 
 // SaveHashData accesses the repository to save data to the database
