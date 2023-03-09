@@ -15,7 +15,7 @@ type HashDataFromDB struct {
 	NameDeployment string
 }
 
-type KuberData struct {
+type KubeData struct {
 	Clientset  *kubernetes.Clientset
 	Namespace  string
 	TargetName string
@@ -31,6 +31,6 @@ type DeploymentData struct {
 }
 
 type DataFromK8sAPI struct {
-	KuberData      *KuberData
+	KubeData       *KubeData
 	DeploymentData *DeploymentData
 }

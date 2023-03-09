@@ -16,7 +16,7 @@ type IAppService interface {
 	IsExistDeploymentNameInDB(deploymentName string) bool
 	LaunchHasher(ctx context.Context, dirPath string, sig chan os.Signal) []*api.HashData
 	Start(ctx context.Context, dirPath string, sig chan os.Signal, deploymentData *models.DeploymentData) error
-	Check(ctx context.Context, dirPath string, sig chan os.Signal, deploymentData *models.DeploymentData, kuberData *models.KuberData) error
+	Check(ctx context.Context, dirPath string, sig chan os.Signal, deploymentData *models.DeploymentData, kuberData *models.KubeData) error
 }
 
 type IHashService interface {
@@ -31,7 +31,7 @@ type IHashService interface {
 
 type IKuberService interface {
 	GetDataFromK8sAPI() (*models.DataFromK8sAPI, error)
-	ConnectionToK8sAPI() (*models.KuberData, error)
-	GetDataFromDeployment(kuberData *models.KuberData) (*models.DeploymentData, error)
-	RolloutDeployment(kuberData *models.KuberData) error
+	GetKubeData() (*models.KubeData, error)
+	GetDataFromDeployment(kuberData *models.KubeData) (*models.DeploymentData, error)
+	RolloutDeployment(kuberData *models.KubeData) error
 }

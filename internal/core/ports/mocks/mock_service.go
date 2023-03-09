@@ -39,7 +39,7 @@ func (m *MockIAppService) EXPECT() *MockIAppServiceMockRecorder {
 }
 
 // Check mocks base method.
-func (m *MockIAppService) Check(ctx context.Context, dirPath string, sig chan os.Signal, deploymentData *models.DeploymentData, kuberData *models.KuberData) error {
+func (m *MockIAppService) Check(ctx context.Context, dirPath string, sig chan os.Signal, deploymentData *models.DeploymentData, kuberData *models.KubeData) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Check", ctx, dirPath, sig, deploymentData, kuberData)
 	ret0, _ := ret[0].(error)
@@ -252,10 +252,10 @@ func (m *MockIKuberService) EXPECT() *MockIKuberServiceMockRecorder {
 }
 
 // ConnectionToK8sAPI mocks base method.
-func (m *MockIKuberService) ConnectionToK8sAPI() (*models.KuberData, error) {
+func (m *MockIKuberService) GetKubeData() (*models.KubeData, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ConnectionToK8sAPI")
-	ret0, _ := ret[0].(*models.KuberData)
+	ret := m.ctrl.Call(m, "GetKubeData")
+	ret0, _ := ret[0].(*models.KubeData)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -263,11 +263,11 @@ func (m *MockIKuberService) ConnectionToK8sAPI() (*models.KuberData, error) {
 // ConnectionToK8sAPI indicates an expected call of ConnectionToK8sAPI.
 func (mr *MockIKuberServiceMockRecorder) ConnectionToK8sAPI() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConnectionToK8sAPI", reflect.TypeOf((*MockIKuberService)(nil).ConnectionToK8sAPI))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetKubeData", reflect.TypeOf((*MockIKuberService)(nil).GetKubeData))
 }
 
 // GetDataFromDeployment mocks base method.
-func (m *MockIKuberService) GetDataFromDeployment(kuberData *models.KuberData) (*models.DeploymentData, error) {
+func (m *MockIKuberService) GetDataFromDeployment(kuberData *models.KubeData) (*models.DeploymentData, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetDataFromDeployment", kuberData)
 	ret0, _ := ret[0].(*models.DeploymentData)
@@ -297,7 +297,7 @@ func (mr *MockIKuberServiceMockRecorder) GetDataFromK8sAPI() *gomock.Call {
 }
 
 // RolloutDeployment mocks base method.
-func (m *MockIKuberService) RolloutDeployment(kuberData *models.KuberData) error {
+func (m *MockIKuberService) RolloutDeployment(kuberData *models.KubeData) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RolloutDeployment", kuberData)
 	ret0, _ := ret[0].(error)

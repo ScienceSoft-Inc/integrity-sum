@@ -30,7 +30,7 @@ func NewAppService(r ports.IAppRepository, alertSender alerts.Sender, algorithm 
 	return &AppService{
 		IHashService:   NewHashService(r, strings.ToUpper(algorithm), logger),
 		IAppRepository: r,
-		IKuberService:  NewKuberService(logger),
+		IKuberService:  NewKubeService(logger),
 		alertSender:    alertSender,
 		logger:         logger,
 	}
@@ -82,7 +82,7 @@ func (as *AppService) Start(ctx context.Context, dirPath string, deploymentData 
 }
 
 // Check getting the hash sum of all files, matches them and outputs to os.Stdout changes
-func (as *AppService) Check(ctx context.Context, dirPath string, deploymentData *models.DeploymentData, kuberData *models.KuberData) error {
+func (as *AppService) Check(ctx context.Context, dirPath string, deploymentData *models.DeploymentData, kuberData *models.KubeData) error {
 	hashDataCurrentByDirPath := as.LaunchHasher(ctx, dirPath)
 
 	dataFromDBbyPodName, err := as.IHashService.GetHashData(dirPath, deploymentData)
