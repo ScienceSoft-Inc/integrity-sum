@@ -212,5 +212,5 @@ tmp-test:
 .PHONY: rerun
 rerun:
 	-helm uninstall app
-	make build docker kind-load-images
+	# make build docker kind-load-images
 	DB_USER=user DB_PASSWORD=user DB_NAME=user make helm-database helm-app

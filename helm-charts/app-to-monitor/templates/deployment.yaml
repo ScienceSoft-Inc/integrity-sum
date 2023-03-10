@@ -1,3 +1,5 @@
+{{- $sa := print .Release.Name "-" .Values.serviceAccount -}}
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -22,7 +24,7 @@ spec:
         integrity-monitor.scnsoft.com/inject: "true"
         {{ .Values.configMap.processName }}.integrity-monitor.scnsoft.com/monitoring-paths: {{ join "," .Values.configMap.mountPaths }}
     spec:
-      serviceAccountName: {{ .Release.Name }}-{{ .Values.serviceAccount }}
+      serviceAccountName: {{ $sa }}
       shareProcessNamespace: true
       containers:
         - name: {{ .Values.container.name }}
@@ -40,6 +42,18 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.releaseNameDB }}-postgresql
                   key: password
+            {{- if .Values.minio.enabled }}
+            - name: MINIO_SERVER_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.minio.secret.name }}
+                  key: {{ .Values.minio.secret.userKey }}
+            - name: MINIO_SERVER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.minio.secret.name }}
+                  key: {{ .Values.minio.secret.passwordKey }}
+            {{- end }}
             - name: POD_NAME
               valueFrom:
                 fieldRef:
@@ -61,6 +75,10 @@ spec:
             - --syslog-host={{ .Values.configMap.syslog.host }}
             - --syslog-port={{ .Values.configMap.syslog.port }}
             - --syslog-proto={{ .Values.configMap.syslog.proto }}
+            {{- end }}
+            {{- if .Values.minio.enabled }}
+            - --minio-enabled={{ .Values.minio.enabled }}
+            - --minio-host={{ .Values.minio.server.host }}:{{ .Values.minio.server.port }}
             {{- end }}
           resources:
             limits:

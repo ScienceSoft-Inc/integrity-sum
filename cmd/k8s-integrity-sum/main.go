@@ -6,6 +6,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
+	"golang.org/x/sync/errgroup"
+
 	_ "github.com/ScienceSoft-Inc/integrity-sum/internal/configs"
 	"github.com/ScienceSoft-Inc/integrity-sum/internal/core/models"
 	"github.com/ScienceSoft-Inc/integrity-sum/internal/core/services"
@@ -18,10 +23,6 @@ import (
 	"github.com/ScienceSoft-Inc/integrity-sum/pkg/alerts/splunk"
 	"github.com/ScienceSoft-Inc/integrity-sum/pkg/common"
 	"github.com/ScienceSoft-Inc/integrity-sum/pkg/health"
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
-	"golang.org/x/sync/errgroup"
 )
 
 func main() {

@@ -211,10 +211,31 @@ golangci-lint run
 ```
 
 ## Including Bee2 library into the application
+
 Use the Makefile target `bee2-lib` to build standalone static and shared binary for the bee2 library.
 Use the env variable `BEE2_ENABLED=true` with `make build` to include bee2 library into the application. Then deployment may be updated with `--algorithm=BEE2` arg to select bee2 hashing algorithm.
 
 Find more details about bee2 tools in the [Readme](internal/ffi/bee2/Readme.md).
 
+## Enable MinIO
+
+The code was tested with default `bitnami/minio` helm chart.
+
+### Instal standalone server
+
+The following code will create the `minio` namespace and install a default MinIO server into it.
+
+```bash
+kubectl create ns minio
+helm install minio --namespace=minio bitnami/minio
+```
+
+Refer to the original documentation [Bitnami Object Storage based on MinIO®](https://hub.docker.com/r/bitnami/minio/) for more details.
+
+### Include into the project
+
+To enable the MinIO in the project set the `minio.enabled` to `true` in the `helm-charts/app-to-monitor/values.yaml`.
+
 ## License
+
 This project uses the MIT software license. See [full license file](https://github.com/ScienceSoft-Inc/integrity-sum/blob/main/LICENSE)

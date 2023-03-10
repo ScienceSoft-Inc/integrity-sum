@@ -44,3 +44,16 @@ db:
   port: 5432
   database: ""
   username: ""
+
+# The MinIO connection data. It assumes that the MinIO server is running on and
+# properly configured.
+minio:
+  enabled: false
+  namespace: "minio"
+  secret:
+    name: "minio"
+    userKey: "root-user"
+    passwordKey: "root-password"
+  server:
+    host: minio.minio.svc.cluster.local # service.namespace.svc.cluster.local
+    port: "9000"

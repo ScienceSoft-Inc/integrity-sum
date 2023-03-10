@@ -57,16 +57,15 @@ func (fh *Hasher) HashFile(fullFileName string) (string, error) {
 // Uses default Go Hash interface.
 func (fh *Hasher) HashData(r *bytes.Reader) (string, error) {
 	fh.h.Reset()
-	cntBytes, err := io.Copy(fh.h, r)
+	_, err := io.Copy(fh.h, r)
 	if err != nil {
 		fh.log.WithError(err).Error("io.Copy()")
 		return "", err
 	}
-	fh.log.WithField("cntBytes", cntBytes).Debug("io.Copy() written bytes")
 	return hex.EncodeToString(fh.h.Sum(nil)), nil
 }
 
-// Registers init func for @name hasher
+// Registers init func for @name algorithm
 func RegisterAlg(name string, f InitFunc) bool {
 	algs[name] = f
 	fmt.Printf("algorithm %q has been registered\n", name)
