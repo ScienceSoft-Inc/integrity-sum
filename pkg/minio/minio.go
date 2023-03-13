@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os"
 
 	"github.com/minio/minio-go/v7"
@@ -16,6 +17,8 @@ import (
 const (
 	MsgFailedInitiateClient string = "failed to initiate MinIO client: %w"
 	MsgFailedUpload         string = "failed to upload object: %w"
+	MsgFailedLoad           string = "failed to load object: %w"
+	MsgFailedGetInfo        string = "failed to get info for object: %w"
 )
 
 func init() {
@@ -38,10 +41,10 @@ func NewMinIOClient(host string, log *logrus.Logger) (*minio.Client, error) {
 	accessKeyID := viper.GetString("minio-access-key")
 	secretAccessKey := viper.GetString("minio-secret-key")
 	useSSL := false
-	// log.WithFields(logrus.Fields{
-	// 	"accessKeyID":     accessKeyID,
-	// 	"secretAccessKey": secretAccessKey,
-	// }).Debug("MinIO credentials")
+	log.WithFields(logrus.Fields{
+		"accessKeyID": accessKeyID,
+		// 	"secretAccessKey": secretAccessKey,
+	}).Debug("MinIO credentials")
 
 	log.Debug("initializing MinIO client")
 	client, err := minio.New(host, &minio.Options{
@@ -60,6 +63,8 @@ type Storage struct {
 	log    *logrus.Logger
 }
 
+// TODO: once
+
 func NewStorage(log *logrus.Logger) (*Storage, error) {
 	client, err := NewMinIOClient(viper.GetString("minio-host"), log)
 	if err != nil {
@@ -71,6 +76,8 @@ func NewStorage(log *logrus.Logger) (*Storage, error) {
 	}, nil
 }
 
+// TODO: different backets for different kind of objects (deployment,
+// statefulset, etc). For now, just one.
 const BucketName = "integrity"
 
 // Save stores @data into the bucket with the given @objectName
@@ -90,16 +97,30 @@ func (s *Storage) Save(ctx context.Context, objectName string, data []byte) erro
 	s.log.WithFields(logrus.Fields{
 		"objectName": objectName,
 		"size":       info.Size,
-	}).Info("uploaded successfully")
+	}).Debug("uploaded successfully")
 	return nil
 }
 
-/*
-read
-object, err := minioClient.GetObject(context.Background(), "mybucket", "myobject", minio.GetObjectOptions{})
-if err != nil {
-    fmt.Println(err)
-    return
+// Load loads and returns data from the bucket for the @objectName
+func (s *Storage) Load(ctx context.Context, objectName string) ([]byte, error) {
+	r, err := s.client.GetObject(
+		ctx,
+		BucketName,
+		objectName,
+		minio.GetObjectOptions{},
+	)
+	if err != nil {
+		return nil, fmt.Errorf(MsgFailedLoad, err)
+	}
+	defer r.Close()
+
+	info, err := r.Stat()
+	if err != nil {
+		return nil, fmt.Errorf(MsgFailedGetInfo, err)
+	}
+	s.log.WithFields(logrus.Fields{
+		"objectName": info.Key,
+		"size":       info.Size,
+	}).Debug("loaded successfully")
+	return ioutil.ReadAll(r)
 }
-defer object.Close()
-*/
