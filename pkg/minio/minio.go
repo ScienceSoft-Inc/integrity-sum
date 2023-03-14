@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"sync"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -19,12 +20,14 @@ const (
 	MsgFailedUpload         string = "failed to upload object: %w"
 	MsgFailedLoad           string = "failed to load object: %w"
 	MsgFailedGetInfo        string = "failed to get info for object: %w"
+	MsgFailedCreateBucket   string = "failed to create bucket: %w"
 )
 
 func init() {
 	fsMinIO := pflag.NewFlagSet("minio", pflag.ExitOnError)
 	fsMinIO.Bool("minio-enabled", false, "enable MinIO")
 	fsMinIO.String("minio-host", "minio.svc.local:9001", "MinIO host")
+	fsMinIO.String("minio-bucket", BucketName, "MinIO bucket name")
 
 	viper.BindEnv("minio-access-key", "MINIO_SERVER_USER")
 	viper.BindEnv("minio-secret-key", "MINIO_SERVER_PASSWORD")
@@ -63,21 +66,31 @@ type Storage struct {
 	log    *logrus.Logger
 }
 
-// TODO: once
+var (
+	instance *Storage
+	once     sync.Once
+)
 
-func NewStorage(log *logrus.Logger) (*Storage, error) {
-	client, err := NewMinIOClient(viper.GetString("minio-host"), log)
-	if err != nil {
-		return nil, err
-	}
-	return &Storage{
-		client: client,
-		log:    log,
-	}, nil
+func Instance() *Storage {
+	return instance
 }
 
-// TODO: different backets for different kind of objects (deployment,
-// statefulset, etc). For now, just one.
+func NewStorage(log *logrus.Logger) (*Storage, error) {
+	var err error
+	once.Do(func() {
+		var client *minio.Client
+		client, err = NewMinIOClient(viper.GetString("minio-host"), log)
+		if err != nil {
+			return
+		}
+		instance = &Storage{
+			client: client,
+			log:    log,
+		}
+	})
+	return instance, nil
+}
+
 const BucketName = "integrity"
 
 // Save stores @data into the bucket with the given @objectName
@@ -123,4 +136,27 @@ func (s *Storage) Load(ctx context.Context, objectName string) ([]byte, error) {
 		"size":       info.Size,
 	}).Debug("loaded successfully")
 	return ioutil.ReadAll(r)
+}
+
+// Creates a new bucket with the given @bucketName if it not exists
+func (s *Storage) CreateBucketIfNotExists(ctx context.Context, bucketName string) error {
+	// check the bucket is exist
+	isExist, err := s.client.BucketExists(ctx, bucketName)
+	if err != nil {
+		return fmt.Errorf(MsgFailedCreateBucket, err)
+	}
+	if isExist {
+		return nil
+	}
+
+	// create new one
+	err = s.client.MakeBucket(ctx, bucketName, minio.MakeBucketOptions{})
+	if err != nil {
+		return fmt.Errorf(MsgFailedCreateBucket, err)
+	}
+	s.log.WithFields(logrus.Fields{
+		"bucketName": bucketName,
+	}).Debug("created successfully")
+
+	return nil
 }
