@@ -26,7 +26,7 @@ const (
 func init() {
 	fsMinIO := pflag.NewFlagSet("minio", pflag.ExitOnError)
 	fsMinIO.Bool("minio-enabled", false, "enable MinIO")
-	fsMinIO.String("minio-host", "minio.svc.local:9001", "MinIO host")
+	fsMinIO.String("minio-host", "minio.minio.svc.cluster.local:9000", "MinIO host")
 	fsMinIO.String("minio-bucket", BucketName, "MinIO bucket name")
 
 	viper.BindEnv("minio-access-key", "MINIO_SERVER_USER")
@@ -93,12 +93,12 @@ func NewStorage(log *logrus.Logger) (*Storage, error) {
 
 const BucketName = "integrity"
 
-// Save stores @data into the bucket with the given @objectName
-func (s *Storage) Save(ctx context.Context, objectName string, data []byte) error {
+// Save stores @data into the @bucketName with the given @objectName
+func (s *Storage) Save(ctx context.Context, bucketName, objectName string, data []byte) error {
 	r := bytes.NewReader(data)
 	info, err := s.client.PutObject(
 		ctx,
-		BucketName,
+		bucketName,
 		objectName,
 		r,
 		r.Size(),
@@ -114,11 +114,11 @@ func (s *Storage) Save(ctx context.Context, objectName string, data []byte) erro
 	return nil
 }
 
-// Load loads and returns data from the bucket for the @objectName
-func (s *Storage) Load(ctx context.Context, objectName string) ([]byte, error) {
+// Load loads and returns data from the @bucketName for the @objectName
+func (s *Storage) Load(ctx context.Context, bucketName, objectName string) ([]byte, error) {
 	r, err := s.client.GetObject(
 		ctx,
-		BucketName,
+		bucketName,
 		objectName,
 		minio.GetObjectOptions{},
 	)
