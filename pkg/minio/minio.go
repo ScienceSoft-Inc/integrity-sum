@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/viper"
 )
 
+// Error messages
 const (
 	MsgFailedInitiateClient string = "failed to initiate MinIO client: %w"
 	MsgFailedUpload         string = "failed to upload object: %w"
@@ -23,11 +24,13 @@ const (
 	MsgFailedCreateBucket   string = "failed to create bucket: %w"
 )
 
+const defaultBucketName = "integrity"
+
 func init() {
 	fsMinIO := pflag.NewFlagSet("minio", pflag.ExitOnError)
 	fsMinIO.Bool("minio-enabled", false, "enable MinIO")
 	fsMinIO.String("minio-host", "minio.minio.svc.cluster.local:9000", "MinIO host")
-	fsMinIO.String("minio-bucket", BucketName, "MinIO bucket name")
+	fsMinIO.String("minio-bucket", defaultBucketName, "MinIO bucket name")
 
 	viper.BindEnv("minio-access-key", "MINIO_SERVER_USER")
 	viper.BindEnv("minio-secret-key", "MINIO_SERVER_PASSWORD")
@@ -46,7 +49,7 @@ func NewMinIOClient(host string, log *logrus.Logger) (*minio.Client, error) {
 	useSSL := false
 	log.WithFields(logrus.Fields{
 		"accessKeyID": accessKeyID,
-		// 	"secretAccessKey": secretAccessKey,
+		// "secretAccessKey": secretAccessKey,
 	}).Debug("MinIO credentials")
 
 	log.Debug("initializing MinIO client")
@@ -61,6 +64,7 @@ func NewMinIOClient(host string, log *logrus.Logger) (*minio.Client, error) {
 	return client, nil
 }
 
+// Storage represents instance for MinIO storage
 type Storage struct {
 	client *minio.Client
 	log    *logrus.Logger
@@ -71,10 +75,12 @@ var (
 	once     sync.Once
 )
 
+// Instance returns the current storage instance
 func Instance() *Storage {
 	return instance
 }
 
+// NewStorage creates new storage instance and return it
 func NewStorage(log *logrus.Logger) (*Storage, error) {
 	var err error
 	once.Do(func() {
@@ -88,10 +94,8 @@ func NewStorage(log *logrus.Logger) (*Storage, error) {
 			log:    log,
 		}
 	})
-	return instance, nil
+	return instance, err
 }
-
-const BucketName = "integrity"
 
 // Save stores @data into the @bucketName with the given @objectName
 func (s *Storage) Save(ctx context.Context, bucketName, objectName string, data []byte) error {
@@ -138,9 +142,9 @@ func (s *Storage) Load(ctx context.Context, bucketName, objectName string) ([]by
 	return ioutil.ReadAll(r)
 }
 
-// Creates a new bucket with the given @bucketName if it not exists
+// CreateBucketIfNotExists creates a new bucket with the given @bucketName if it
+// does not exist
 func (s *Storage) CreateBucketIfNotExists(ctx context.Context, bucketName string) error {
-	// check the bucket is exist
 	isExist, err := s.client.BucketExists(ctx, bucketName)
 	if err != nil {
 		return fmt.Errorf(MsgFailedCreateBucket, err)
