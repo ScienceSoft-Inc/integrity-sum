@@ -18,10 +18,15 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var log = logrus.New()
+var log = &logrus.Logger{
+	Out:       os.Stderr,
+	Formatter: &logrus.TextFormatter{DisableQuote: true},
+	Hooks:     make(logrus.LevelHooks),
+	Level:     logrus.InfoLevel,
+	ExitFunc:  os.Exit,
+}
 
 func TestMain(m *testing.M) {
-	log.SetLevel(logrus.DebugLevel)
 	cleanup, err := setup()
 	if err != nil {
 		os.Exit(1)
@@ -108,47 +113,56 @@ func setup() (func(), error) {
 		return nil, err
 	}
 
-	printLog(pool.Client, resource.Container.ID)
+	waitSetupCompleted(pool.Client, resource.Container.ID)
 	return cleanup, nil
 }
 
-func printLog(client *docker.Client, containerID string) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	buf := bytes.NewBuffer(nil)
-
+func waitSetupCompleted(client *docker.Client, containerID string) {
+	ctx, cancelTimeout := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancelTimeout()
+	ctx, cancelLog := context.WithCancel(ctx)
+	defer cancelLog()
+	buf := bytes.NewBuffer(make([]byte, 1024))
 	tNow := time.Now()
-	logOptions := docker.LogsOptions{
-		Context:           ctx,
-		Container:         containerID,
-		OutputStream:      buf,
-		ErrorStream:       buf,
-		InactivityTimeout: 0,
-		Tail:              "100",
-		Since:             0,
-		Follow:            false,
-		Stdout:            true,
-		Stderr:            true,
-		Timestamps:        false,
-		RawTerminal:       false,
+
+	go func() {
+		err := client.Logs(docker.LogsOptions{
+			Context:      ctx,
+			Container:    containerID,
+			OutputStream: buf,
+			ErrorStream:  buf,
+			Tail:         "all",
+			Follow:       true,
+			Stdout:       true,
+			Stderr:       true,
+		})
+		if err != nil {
+			if err != context.Canceled {
+				log.Errorf("could not get logs from container (%v): %s", time.Since(tNow), err)
+			}
+		}
+	}()
+
+	for {
+		line, err := buf.ReadString('\n')
+		line = strings.TrimSpace(line)
+		if err != nil || (len(line) <= 0) {
+			time.Sleep(250 * time.Millisecond)
+			continue
+		}
+		log.Debug(line)
+
+		if strings.Contains(line, "==> ** Starting MinIO **") {
+			cancelLog()
+		}
+
+		select {
+		case <-ctx.Done():
+			log.Debugf("read logs (%v): %s", time.Since(tNow), ctx.Err())
+			return
+		default:
+		}
 	}
-
-	err := client.Logs(logOptions)
-	if err != nil {
-		log.Errorf("could not get logs from container (%v): %s", time.Since(tNow), err)
-		return
-	}
-
-	log.Debugf("container logs (%v):", time.Since(tNow))
-	printOutput(buf.String())
-}
-
-func printOutput(str string) {
-	formatter := log.Formatter
-	defer func() { log.Formatter = formatter }()
-
-	log.Formatter = &logrus.TextFormatter{DisableQuote: true}
-	log.Debug(str)
 }
 
 func waitMinioServiceStart(pool *dockertest.Pool, addr string) error {
@@ -169,10 +183,7 @@ func waitMinioServiceStart(pool *dockertest.Pool, addr string) error {
 		return err
 	}
 
-	// important: waiting for MinIO setup to be done
-	time.Sleep(7 * time.Second) // TODO: check the log for "setup completed"
-
-	log.Debugf("the MinIO container is ready now")
+	log.Debug("the MinIO container is started now")
 	return nil
 }
 
@@ -183,7 +194,8 @@ func TestSetupBuckets(t *testing.T) {
 	buckets, err := Instance().ListBuckets(ctxLog)
 	assert.NoError(t, err, "cannot list buckets: %v", err)
 	for i, v := range buckets {
-		assert.Equal(t, setupBuckets[i], v.Name, "buckets not equal: %v-%v", setupBuckets[i], v.Name)
+		assert.Equal(t, setupBuckets[i], v.Name,
+			"buckets not equal: %v-%v", setupBuckets[i], v.Name)
 	}
 }
 
