@@ -164,3 +164,7 @@ func (s *Storage) CreateBucketIfNotExists(ctx context.Context, bucketName string
 
 	return nil
 }
+
+func (s *Storage) ListBuckets(ctx context.Context) ([]minio.BucketInfo, error) {
+	return s.client.ListBuckets(ctx)
+}

@@ -92,7 +92,7 @@ endif
 
 .PHONY: tminio
 tminio:
-	go test -v -timeout 10s -run ^TestCreateBucket$$ ./pkg/minio
+	go test -v -timeout 20s ./pkg/minio
 
 ## Downloads the necessesary dev dependencies.
 .PHONY : dev-dependencies
@@ -207,22 +207,3 @@ dirs:
 .PHONY: buildtools
 buildtools:
 	@docker build -f ./docker/Dockerfile.build -t buildtools:latest ./docker
-
-
-## TODO remove
-.PHONY: mstart mstop
-mstart:
-	docker run --rm --name minio \
-		--env MINIO_ROOT_USER="admin" \
-		--env MINIO_ROOT_PASSWORD="admin_password" \
-		--env MINIO_DEFAULT_BUCKETS="bucket" \
-		-p 9000:9000 \
-		-p 9001:9001 \
-		bitnami/minio:latest
-
-# --network app-tier
-# --env MINIO_SERVER_HOST="minio" \
-# -v $(CUR_DIR)/tmp/minio/data:/data
-
-mstop:
-	docker rm -v -f minio
