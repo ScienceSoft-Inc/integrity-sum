@@ -23,6 +23,7 @@ import (
 	"github.com/ScienceSoft-Inc/integrity-sum/pkg/common"
 	"github.com/ScienceSoft-Inc/integrity-sum/pkg/health"
 	"github.com/ScienceSoft-Inc/integrity-sum/pkg/k8s"
+	_ "github.com/ScienceSoft-Inc/integrity-sum/pkg/minio"
 )
 
 func main() {
