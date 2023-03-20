@@ -47,10 +47,6 @@ func NewMinIOClient(host string, log *logrus.Logger) (*minio.Client, error) {
 	accessKeyID := viper.GetString("minio-access-key")
 	secretAccessKey := viper.GetString("minio-secret-key")
 	useSSL := false
-	log.WithFields(logrus.Fields{
-		"accessKeyID": accessKeyID,
-		// "secretAccessKey": secretAccessKey,
-	}).Debug("MinIO credentials")
 
 	log.Debug("initializing MinIO client")
 	client, err := minio.New(host, &minio.Options{
