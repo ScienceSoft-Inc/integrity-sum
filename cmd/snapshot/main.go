@@ -20,7 +20,7 @@ import (
   function.
 
   Example of usage:
-  ./snapshot --root-fs="bin/docker-fs" --verbose=debug --dir "/app,/bin" --dir "/dir3" --out "/bin/snapshot.txt"
+  ./snapshot --root-fs="bin/docker-fs" --verbose=debug --dir "/app,/bin" --out "bin/snapshot.txt"
 */
 
 func main() {
@@ -33,8 +33,6 @@ func main() {
 }
 
 func initConfig() {
-	// pflag.String("verbose", "info", "verbose level")
-	// pflag.String("algorithm", "SHA256", "hashing algorithm for calculating hashes")
 	pflag.StringSlice("dir", []string{}, "path to dir for which snapshot will be created, example: --dir=\"tmp,bin\" --dir vendor (result: [tmp bin vendor])")
 	pflag.String("root-fs", "./", "path to docker image root filesystem")
 	pflag.String("out", "out.txt", "output file name")

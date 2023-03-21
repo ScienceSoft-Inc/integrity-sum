@@ -63,11 +63,12 @@ func CalculateAndWriteHashes() error {
 		hashes = append(hashes, HashDir(rootFs, v, viper.GetString("algorithm"))...)
 	}
 
-	err = writeHashesJson(file, hashes)
+	// err = writeAsJson(file, hashes)
+	err = writeAsPlainText(file, hashes)
 	return err
 }
 
-func writeHashesJson(file *os.File, hashes []worker.FileHash) error {
+func writeAsJson(file *os.File, hashes []worker.FileHash) error {
 	bs, err := json.MarshalIndent(hashes, "", "  ")
 	if err != nil {
 		logrus.Errorf("failed to marshal snapshot: %v", err)
@@ -98,5 +99,24 @@ func writeHashesJson(file *os.File, hashes []worker.FileHash) error {
 		    "hash": "36d96947f81bee3a5e1d436a333a52209f051bb3556028352d4273a748e2d136"
 		  }
 		]
+	*/
+}
+
+func writeAsPlainText(file *os.File, hashes []worker.FileHash) error {
+	separator := "  "
+	for _, v := range hashes {
+		_, err := file.WriteString(v.Hash + separator + v.Path + "\n")
+		if err != nil {
+			logrus.Errorf("failed to write hashes: %v", err)
+			return err
+		}
+	}
+	return nil
+	/*
+		$ cat bin/snapshot.txt
+		11539904589278c0fea68b1aca1e86490d796392af1f437dfe2ea0c8ec469cd6  /app/db/migrations/000001_init.up.sql
+		39c1fa1a6fed5662a372df6b9c717e526cb7e2f4adcacd5a7224cb9ab62730cd  /app/db/migrations/000001_init.down.sql
+		d4b7246928b0420ea5143a7db9cbd63db5195c14caa7ed2568b883eefad02731  /app/integritySum
+		36d96947f81bee3a5e1d436a333a52209f051bb3556028352d4273a748e2d136  /bin/busybox
 	*/
 }
