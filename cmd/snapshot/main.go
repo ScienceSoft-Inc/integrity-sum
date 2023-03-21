@@ -21,6 +21,11 @@ import (
 
   Example of usage:
   ./snapshot --root-fs="bin/docker-fs" --verbose=debug --dir "/app,/bin" --out "bin/snapshot.txt"
+
+  Extracting docker image filesystem.
+  The code below will extract the filesystem of the docker image "integrity:latest into the "./bin/docker-fs/":
+  cid=$(docker create integrity:latest) && docker export $cid | tar -xC ./bin/docker-fs/ && docker rm $cid
+
 */
 
 func main() {
