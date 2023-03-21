@@ -2,27 +2,24 @@ package integritymonitor
 
 import (
 	"context"
+	"encoding/json"
+	"os"
 	"runtime"
 	"strings"
 
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 
 	"github.com/ScienceSoft-Inc/integrity-sum/internal/walker"
 	"github.com/ScienceSoft-Inc/integrity-sum/internal/worker"
 )
 
-// DirSnapshot is a snapshot of a directory.
-type DirSnapshot struct {
-	dirName    string            `json:"dir"`
-	fileHashes []worker.FileHash `json:"hashes"`
-}
-
-const defaultHashSize = 128
+const DefaultHashSize = 128
 
 // HashDir calculates file hashes of a given directory
-func HashDir(rootFs, pathToMonitor, alg string) *DirSnapshot {
-
-	ctx := context.Background()
+func HashDir(rootFs, pathToMonitor, alg string) []worker.FileHash {
+	ctx, cancel := context.WithTimeout(context.Background(), viper.GetDuration("scan-dir-timeout"))
+	defer cancel()
 	log := logrus.StandardLogger()
 	dir := rootFs + pathToMonitor
 	fileHachC := worker.WorkersPool(
@@ -30,29 +27,76 @@ func HashDir(rootFs, pathToMonitor, alg string) *DirSnapshot {
 		walker.ChanWalkDir(ctx, dir, log),
 		worker.NewWorker(ctx, alg, log),
 	)
-	ds := DirSnapshot{
-		dirName:    pathToMonitor,
-		fileHashes: make([]worker.FileHash, 0, defaultHashSize),
-	}
 
-	// log.Debugf("dir: %s", ds.dirName)
+	hashes := make([]worker.FileHash, 0, DefaultHashSize)
 	for v := range fileHachC {
 		v.Path = strings.TrimPrefix(v.Path, rootFs)
-		ds.fileHashes = append(ds.fileHashes, v)
-		// log.Debugf("file hash: %s \t%s", v.Path, v.Hash)
+		hashes = append(hashes, v)
+	}
+	return hashes
+}
+
+// CalculateAndWriteHashes calculates file hashes of a given directory and store
+// them as a file for further usage.
+func CalculateAndWriteHashes() error {
+	rootFs := viper.GetString("root-fs")
+	dirs := viper.GetStringSlice("dir")
+
+	file, err := os.Create(viper.GetString("out"))
+	if err != nil {
+		return err
+	}
+	defer func() {
+		file.Close()
+		if err != nil {
+			os.Remove(file.Name())
+		}
+	}()
+
+	hashes := make([]worker.FileHash, 0, DefaultHashSize*len(dirs))
+	for _, v := range dirs {
+		dir := rootFs + v
+		if _, err = os.Stat(dir); os.IsNotExist(err) {
+			logrus.Errorf("dir %s does not exist", dir)
+			return err
+		}
+		hashes = append(hashes, HashDir(rootFs, v, viper.GetString("algorithm"))...)
 	}
 
-	return &ds
+	err = writeHashesJson(file, hashes)
+	return err
 }
 
-// Snapshot contains snapshots of selected directories.
-type Snapshot struct {
-	Dirs []DirSnapshot `json:"dirs"`
+func writeHashesJson(file *os.File, hashes []worker.FileHash) error {
+	bs, err := json.MarshalIndent(hashes, "", "  ")
+	if err != nil {
+		logrus.Errorf("failed to marshal snapshot: %v", err)
+		return err
+	}
+	if _, err = file.Write(bs); err != nil {
+		logrus.Errorf("failed to write snapshot: %v", err)
+		return err
+	}
+	return nil
+
+	/*
+		[
+		  {
+		    "path": "/app/db/migrations/000001_init.down.sql",
+		    "hash": "39c1fa1a6fed5662a372df6b9c717e526cb7e2f4adcacd5a7224cb9ab62730cd"
+		  },
+		  {
+		    "path": "/app/db/migrations/000001_init.up.sql",
+		    "hash": "11539904589278c0fea68b1aca1e86490d796392af1f437dfe2ea0c8ec469cd6"
+		  },
+		  {
+		    "path": "/app/integritySum",
+		    "hash": "d4b7246928b0420ea5143a7db9cbd63db5195c14caa7ed2568b883eefad02731"
+		  },
+		  {
+		    "path": "/bin/busybox",
+		    "hash": "36d96947f81bee3a5e1d436a333a52209f051bb3556028352d4273a748e2d136"
+		  }
+		]
+	*/
 }
-
-// func (s *Snapshot) ToJson() ([]byte, error) {
-// 	bs, err := json.Marshal(s)
-// }
-
-// TODO: func-bridge for dir path - local file system against shared processes
-// file system to compare stored and calculated hashes
