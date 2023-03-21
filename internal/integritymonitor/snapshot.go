@@ -20,22 +20,23 @@ type DirSnapshot struct {
 const defaultHashSize = 128
 
 // HashDir calculates file hashes of a given directory
-func HashDir(dir, alg string) *DirSnapshot {
+func HashDir(rootFs, pathToMonitor, alg string) *DirSnapshot {
 	ctx := context.Background()
 	log := logrus.StandardLogger()
+	dir := rootFs + pathToMonitor
 	fileHachC := worker.WorkersPool(
 		runtime.NumCPU(),
 		walker.ChanWalkDir(ctx, dir, log),
 		worker.NewWorker(ctx, alg, log),
 	)
 	ds := DirSnapshot{
-		dirName:    dir,
+		dirName:    pathToMonitor,
 		fileHashes: make([]worker.FileHash, 0, defaultHashSize),
 	}
 
 	log.Debugf("dir: %s", ds.dirName)
 	for v := range fileHachC {
-		v.Path = strings.TrimPrefix(v.Path, dir+"/")
+		v.Path = strings.TrimPrefix(v.Path, rootFs)
 		ds.fileHashes = append(ds.fileHashes, v)
 		log.Debugf("file hash: %s \t%s", v.Path, v.Hash)
 	}

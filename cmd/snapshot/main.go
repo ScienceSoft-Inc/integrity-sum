@@ -27,14 +27,18 @@ func main() {
 	initConfig()
 	initLog()
 
+	rootFs := viper.GetString("root-fs")
+	logrus.Debugf("root-fs: %v", rootFs)
+
 	dirs := viper.GetStringSlice("dir")
 	logrus.Debugf("len(dirs): %v", len(dirs))
-	for _, dir := range dirs {
+	for _, v := range dirs {
+		dir := rootFs + v
 		if _, err := os.Stat(dir); os.IsNotExist(err) {
 			logrus.Fatalf("dir %s does not exist", dir)
 		}
 
-		integritymonitor.HashDir(dir, viper.GetString("algorithm"))
+		integritymonitor.HashDir(rootFs, v, viper.GetString("algorithm"))
 	}
 
 }
@@ -43,6 +47,7 @@ func initConfig() {
 	// pflag.String("verbose", "info", "verbose level")
 	// pflag.String("algorithm", "SHA256", "hashing algorithm for calculating hashes")
 	pflag.StringSlice("dir", []string{}, "path to dir for which snapshot will be created, example: --dir=\"tmp,bin\" --dir vendor (result: [tmp bin vendor])")
+	pflag.String("root-fs", "./", "path to docker image root filesystem")
 	pflag.String("out", "out.txt", "output file name")
 	pflag.Parse()
 	viper.BindPFlags(pflag.CommandLine)
