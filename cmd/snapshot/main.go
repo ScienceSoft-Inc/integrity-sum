@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 
 	"github.com/sirupsen/logrus"
@@ -20,27 +21,16 @@ import (
   function.
 
   Example of usage:
-  ./snapshot --dir="/tmp/dir1,/tmp/dir2" --dir dir3 --out /tmp/snapshot.txt
+  ./snapshot --root-fs="bin/docker-fs" --verbose=debug --dir "/app,/bin" --dir "/dir3" --out "/bin/snapshot.txt"
 */
 
 func main() {
 	initConfig()
 	initLog()
 
-	rootFs := viper.GetString("root-fs")
-	logrus.Debugf("root-fs: %v", rootFs)
-
-	dirs := viper.GetStringSlice("dir")
-	logrus.Debugf("len(dirs): %v", len(dirs))
-	for _, v := range dirs {
-		dir := rootFs + v
-		if _, err := os.Stat(dir); os.IsNotExist(err) {
-			logrus.Fatalf("dir %s does not exist", dir)
-		}
-
-		integritymonitor.HashDir(rootFs, v, viper.GetString("algorithm"))
+	if err := snapDirs(); err != nil {
+		logrus.WithError(err).Error("Failed to create output file")
 	}
-
 }
 
 func initConfig() {
@@ -59,4 +49,35 @@ func initLog() {
 		logrus.WithError(err).Error("Failed to parse log level")
 	}
 	logrus.SetLevel(lvl)
+}
+
+func snapDirs() error {
+	rootFs := viper.GetString("root-fs")
+	// logrus.Debugf("root-fs: %v", rootFs)
+	dirs := viper.GetStringSlice("dir")
+	// logrus.Debugf("len(dirs): %v", len(dirs))
+
+	outFileName := viper.GetString("out")
+	// logrus.Debugf("out: %v", outFileName)
+	file, err := os.Create(outFileName)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	for _, v := range dirs {
+		dir := rootFs + v
+		if _, err := os.Stat(dir); os.IsNotExist(err) {
+			logrus.Fatalf("dir %s does not exist", dir)
+		}
+
+		snapshot := integritymonitor.HashDir(rootFs, v, viper.GetString("algorithm"))
+		// snapJson := snapshot.ToJson()
+		bs, err := json.Marshal(snapshot)
+		if err != nil {
+			return err
+		}
+		file.Write(bs)
+	}
+	return nil
 }

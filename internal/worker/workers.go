@@ -10,8 +10,8 @@ import (
 )
 
 type FileHash struct {
-	Path string
-	Hash string
+	Path string `json:"path"`
+	Hash string `json:"hash"`
 }
 
 type HashWorker func(ind int, fileNameC <-chan string, hashC chan<- FileHash)
