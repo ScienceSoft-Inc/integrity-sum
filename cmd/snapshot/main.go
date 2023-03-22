@@ -46,9 +46,12 @@ func initConfig() {
 }
 
 func initLog() {
-	lvl, err := logrus.ParseLevel(viper.GetString("verbose"))
+	vLevel := viper.GetString("verbose")
+	lvl, err := logrus.ParseLevel(vLevel)
 	if err != nil {
-		logrus.WithError(err).Error("failed to parse log level")
+		logrus.WithError(err).WithField("verbose", vLevel).Error("failed to parse log level")
+		logrus.SetLevel(logrus.InfoLevel)
+		return
 	}
 	logrus.SetLevel(lvl)
 }
