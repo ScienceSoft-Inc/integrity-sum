@@ -34,7 +34,6 @@ BUILDER         := $(DOCKER_RUNNER) -e CGO_ENABLED=1 -e GO111MODULE=off -e GOCAC
 GOBUILD         := $(BUILDER) go build $(GO_BUILD_FLAGS)
 GOTEST          := $(BUILDER) go test -v
 
-
 # helm chart path
 HELM_CHART_DB       := helm-charts/database-to-integrity-sum
 HELM_CHART_APP      := helm-charts/app-to-monitor
@@ -207,3 +206,43 @@ dirs:
 .PHONY: buildtools
 buildtools:
 	@docker build -f ./docker/Dockerfile.build -t buildtools:latest ./docker
+
+
+# Take snapshot of a docker image file system.
+#
+# Usage example:
+#
+# 	$ IMAGE_EXPORT=integrity:latest make export-fs
+# ..will export the filesystem of the image "integrity:latest" into the predefined
+# direcrory.
+#
+# 	$ ALG=SHA512 DIRS="app,bin" make snapshot
+# ..will create snapshot for the "app" and "bin" directories of the exported early
+# file system using the SHA512 algorithm.
+
+ifeq (export-fs,$(firstword $(MAKECMDGOALS)))
+  CID:=$(shell docker create $(IMAGE_EXPORT))
+endif
+
+DOCKER_FS_DIR	:= $(BIN)/docker-fs
+ALG 			?= SHA256
+SNAPSHOT_OUTPUT := $(BIN)/snapshot.$(ALG).txt
+
+.PHONY: export-fs
+export-fs: ensure-export-dir clear-snapshot
+	@docker export $(CID) | tar -xC $(DOCKER_FS_DIR) && docker rm $(CID) > /dev/null 2>&1 && \
+	echo exported to $(DOCKER_FS_DIR)
+
+.PHONY: snapshot
+snapshot:
+	@go run ./cmd/snapshot --root-fs="$(DOCKER_FS_DIR)" --dir '$(DIRS)' --algorithm $(ALG) --out $(SNAPSHOT_OUTPUT) && \
+	echo created $(SNAPSHOT_OUTPUT) && \
+	cat $(SNAPSHOT_OUTPUT)
+
+.PHONY: ensure-export-dir
+ensure-export-dir:
+	@mkdir -p $(DOCKER_FS_DIR)
+
+.PHONY: clear-snapshot
+clear-snapshot:
+	@-rm -rf $(DOCKER_FS_DIR)/* $(BIN)/snapshot.*.txt

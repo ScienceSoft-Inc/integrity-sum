@@ -23,6 +23,39 @@ integrity-sum injects a `hasher-sidecar` to your pods as a sidecar container.
 * SHA224
 * SHA384
 * SHA512
+* BEE2 (optional)
+
+## Table of Contents
+
+- [integrity-sum](#integrity-sum)
+  - [Table of Contents](#table-of-contents)
+  - [Architecture](#architecture)
+    - [Statechart diagram](#statechart-diagram)
+  - [Getting Started](#getting-started)
+    - [Clone repository and install dependencies](#clone-repository-and-install-dependencies)
+  - [Demo-App](#demo-app)
+  - [:hammer: Installing components](#hammer-installing-components)
+    - [Running locally](#running-locally)
+    - [Install Helm](#install-helm)
+    - [Configuration](#configuration)
+  - [Quick start](#quick-start)
+    - [Using Makefile](#using-makefile)
+    - [Manual start](#manual-start)
+  - [Pay attention!](#pay-attention)
+  - [Troubleshooting](#troubleshooting)
+  - [:notebook\_with\_decorative\_cover: Godoc extracts and generates documentation for Go programs](#notebook_with_decorative_cover-godoc-extracts-and-generates-documentation-for-go-programs)
+      - [Presents the documentation as a web page.](#presents-the-documentation-as-a-web-page)
+  - [:mag: Running tests](#mag-running-tests)
+  - [:mag: Running linter "golangci-lint"](#mag-running-linter-golangci-lint)
+  - [Including Bee2 library into the application](#including-bee2-library-into-the-application)
+  - [Enable MinIO](#enable-minio)
+    - [Install standalone server](#install-standalone-server)
+    - [Include into the project](#include-into-the-project)
+  - [Syslog support](#syslog-support)
+    - [Install syslog server](#install-syslog-server)
+    - [Syslog messages format](#syslog-messages-format)
+  - [Creating a snapshot of a docker image file system](#creating-a-snapshot-of-a-docker-image-file-system)
+  - [License](#license)
 
 ## Architecture
 ### Statechart diagram
@@ -246,10 +279,10 @@ It could be done either through deployment or by integrity injector.
 To enable syslog support in demo-app:
 
 - Set `SYSLOG_ENABLED` environment variable to `true`
-- Install demo app by running: 
+- Install demo app by running:
 ```
 make helm-app
-``` 
+```
 
 ### Install syslog server
 
@@ -298,6 +331,36 @@ Mar 20 14:10:23 nginx-webhook-86f7cf989c-5pszt integrity-monitor[47]: time=Mar 2
 ```
 
 Note: `<PRI>` - is not shown up in syslog server logs.
+
+## Creating a snapshot of a docker image file system
+
+You need to perform the following steps:
+
+* export image file system to some local directory
+* use snapshot command (`go run ./cmd/snapshot`) to create a snapshot of the exported early directories
+
+It could be done either manually or by using predefined Makefile targets:
+
+* `export-fs`
+
+  Example of usage:
+
+  ```bash
+  IMAGE_EXPORT=integrity:latest make export-fs
+  ```
+
+* `snapshot`
+
+  Example of usage:
+
+  ```bash
+  $ ALG=MD5 DIRS="app,bin" make snapshot
+  ...
+  created bin/snapshot.MD5.txt
+  f731846ea75e8bc9f76e7014b0518976  app/db/migrations/000001_init.down.sql
+  96baa06f69fd446e1044cb4f7b28bc40  app/db/migrations/000001_init.up.sql
+  353f69c28d8a547cbfa34c8b804501ba  app/integritySum
+  ```
 
 ## License
 
