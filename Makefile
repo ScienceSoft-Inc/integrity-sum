@@ -220,13 +220,18 @@ buildtools:
 # ..will create snapshot for the "app" and "bin" directories of the exported early
 # file system using the SHA512 algorithm.
 
-ifeq (export-fs,$(firstword $(MAKECMDGOALS)))
-  CID:=$(shell docker create $(IMAGE_EXPORT))
-endif
 
 DOCKER_FS_DIR	:= $(BIN)/docker-fs
 ALG 			?= SHA256
-SNAPSHOT_OUTPUT := $(BIN)/snapshot.$(ALG).txt
+ifneq (,$(IMAGE_EXPORT))
+  SNAPSHOT_OUTPUT := $(BIN)/$(IMAGE_EXPORT).$(ALG)
+else
+  SNAPSHOT_OUTPUT := $(BIN)/snapshot.$(ALG)
+endif
+
+ifeq (export-fs,$(firstword $(MAKECMDGOALS)))
+  CID:=$(shell docker create $(IMAGE_EXPORT))
+endif
 
 .PHONY: export-fs
 export-fs: ensure-export-dir clear-snapshot

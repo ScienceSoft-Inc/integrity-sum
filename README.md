@@ -55,6 +55,7 @@ integrity-sum injects a `hasher-sidecar` to your pods as a sidecar container.
     - [Install syslog server](#install-syslog-server)
     - [Syslog messages format](#syslog-messages-format)
   - [Creating a snapshot of a docker image file system](#creating-a-snapshot-of-a-docker-image-file-system)
+    - [Output file name for a snapshot](#output-file-name-for-a-snapshot)
   - [License](#license)
 
 ## Architecture
@@ -356,11 +357,27 @@ It could be done either manually or by using predefined Makefile targets:
   ```bash
   $ ALG=MD5 DIRS="app,bin" make snapshot
   ...
-  created bin/snapshot.MD5.txt
+  created bin/snapshot.MD5
   f731846ea75e8bc9f76e7014b0518976  app/db/migrations/000001_init.down.sql
   96baa06f69fd446e1044cb4f7b28bc40  app/db/migrations/000001_init.up.sql
   353f69c28d8a547cbfa34c8b804501ba  app/integritySum
   ```
+
+It is possible to combine the two commands into a single one:
+
+```bash
+IMAGE_EXPORT=integrity:latest DIRS="app,bin" make export-fs snapshot
+```
+
+In this case, the snapshot will be created with default (SHA256) algorithm and the snapshot will be stored as `bin/integrity:latest.SHA256`.
+
+### Output file name for a snapshot
+
+The default location: `./bin`
+
+The default file name: `snapshot.<ALG>`, for example: `snapshot.MD5`
+
+If you want to create a snapshot with a name that corresponds to an image, you should define the `IMAGE_EXPORT` variable for the `make snapshot` command. In this case, the output file will have the following format: `<BIN>/<IMAGE_EXPORT>.<ALG>`
 
 ## License
 
