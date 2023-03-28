@@ -34,7 +34,6 @@ import (
 
 	integrityv1 "integrity/snapshot/api/v1"
 
-	// mstorage "file:///home/sshliayonkin@scnsoft.com/go/src/github.com/ScienceSoft-Inc/integrity-sum/pkg/minio"
 	mstorage "github.com/ScienceSoft-Inc/integrity-sum/pkg/minio"
 )
 
@@ -48,6 +47,8 @@ type SnapshotReconciler struct {
 //+kubebuilder:rbac:groups=integrity.snapshot,resources=snapshots,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=integrity.snapshot,resources=snapshots/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=integrity.snapshot,resources=snapshots/finalizers,verbs=update
+//+kubebuilder:rbac:groups=apps,resources=secrets,verbs=get;list;watch
+//+kubebuilder:rbac:groups=apps,resources=secrets/status,verbs=get
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -77,33 +78,20 @@ func (r *SnapshotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	// testing minIO storage:
-	// buckets, err := ms.ListBuckets(ctx)
-	// if err != nil {
-	// 	l.Error(err, "unable to list buckets")
-	// 	return ctrl.Result{}, client.IgnoreNotFound(err)
-	// }
-	// l.Info("buckets found", "buckets", buckets)
-
-	// imageInfo := strings.Split(snapshot.Spec.Image, ":")
-	// objName := req.NamespacedName.Namespace + "/" + imageInfo[0] + "/" + imageInfo[1]
+	imageInfo := strings.Split(snapshot.Spec.Image, ":")
+	objName := req.NamespacedName.Namespace + "/" + imageInfo[0] + "/" + imageInfo[1]
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	if err = ms.Save(ctx, "integrity", // TODO: mstorage.DefaultBucketName
-		buildObjectName(req.NamespacedName.Namespace, snapshot.Spec.Image), // TODO: mstorage.BuildObjectName(req.NamespacedName.Namespace, snapshot.Spec.Image),
+	if err = ms.Save(ctx, "integrity", // TODO: mstorage.DefaultBucketName "integrity"
+		objName, // TODO: mstorage.BuildObjectName(req.NamespacedName.Namespace, snapshot.Spec.Image),
 		[]byte(snapshot.Spec.Base64Hashes),
 	); err != nil {
 		return ctrl.Result{}, err
 	}
 	l.Info("snapshot saved", "snapshot.Spec", snapshot.Spec)
 
-	// buckets, err := ms.ListBuckets(ctx)
-	// if err != nil {
-	// 	l.Error(err, "unable to list buckets")
-	// 	return ctrl.Result{}, client.IgnoreNotFound(err)
-	// }
-	// l.Info("buckets found", "buckets", buckets)
+	// TODO: update status
 
 	return ctrl.Result{}, nil
 }
@@ -149,15 +137,4 @@ func (r *SnapshotReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&integrityv1.Snapshot{}).
 		Complete(r)
-}
-
-// TODO: move to pkg/minio
-//
-// BuildObjectName returns the object name for the given @namespace and @image.
-//
-// An @image has the following format: imageName:imageTag
-// Returns: namespace/imageName/imageTag
-func buildObjectName(namespace, image string) string {
-	imageInfo := strings.Split(image, ":")
-	return namespace + "/" + imageInfo[0] + "/" + imageInfo[1]
 }
