@@ -64,13 +64,37 @@ func (r *SnapshotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	// l := log.FromContext(ctx)
 	var snapshot integrityv1.Snapshot
 	if err := r.Get(ctx, req.NamespacedName, &snapshot); err != nil {
-		r.Log.Error(err, "unable to fetch snapshot")
+		// r.Log.Error(err, "unable to fetch snapshot")
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 	r.Log.V(1).Info("snapshot found", "image", snapshot.Spec.Image)
 
+	updated, err := r.updateSnapshotFinalizer(ctx, &snapshot)
+	if err != nil {
+		r.Log.Error(err, "unable to update snapshot finalizer")
+		return ctrl.Result{}, err
+	}
+	if updated {
+		// object has changed and will be uploaded to MinIO during next call to
+		// reconcile to prevent uploading twice
+		return ctrl.Result{}, nil
+	}
+
+	// TODO: //controllerutil.AddFinalizer(cronJob, finalizerName)
+
+	// check that deletion process is started
+	if snapshot.DeletionTimestamp != nil {
+		r.Log.V(1).Info("snapshot is being deleted", "snapshot", snapshot.Name)
+		if err = r.deleteSnapshot(ctx, &snapshot); err != nil {
+			r.Log.Error(err, "unable to delete snapshot", "snapshot", snapshot.Name)
+			return ctrl.Result{}, err
+		}
+		r.Log.V(1).Info("snapshot has been deleted", "snapshot", snapshot.Name)
+		return ctrl.Result{}, nil
+	}
+
 	// if !snapshot.Status.IsUploaded {
-	err := r.uploadSnapshot(ctx, snapshot, req)
+	err = r.uploadSnapshot(ctx, snapshot, req)
 	if err != nil {
 		r.Log.Error(err, "unable to upload snapshot")
 		return ctrl.Result{}, err
@@ -81,13 +105,73 @@ func (r *SnapshotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return ctrl.Result{}, nil
 }
 
-func (r *SnapshotReconciler) uploadSnapshot(ctx context.Context, snapshot integrityv1.Snapshot, req reconcile.Request) error {
+func (r *SnapshotReconciler) deleteSnapshot(ctx context.Context, obj *integrityv1.Snapshot) error {
+	// removing object from the MinIO storage
+	if err := r.removeSnapshot(ctx, obj); err != nil {
+		r.Log.Error(err, "unable to delete object", "snapshot", obj.Name)
+		return err
+	}
+
+	r.Log.V(1).Info("removing finalizer", "snapshot", obj.Name)
+	r.removeFinalizer(obj)
+	if err := r.Update(ctx, obj); err != nil {
+		r.Log.Error(err, "unable to update/remove finalizer", "snapshot", obj.Name)
+		return err
+	}
+	return nil
+}
+
+func (r *SnapshotReconciler) removeFinalizer(obj *integrityv1.Snapshot) {
+	for i, v := range obj.ObjectMeta.Finalizers {
+		if v == finalizerName {
+			obj.ObjectMeta.Finalizers = append(obj.ObjectMeta.Finalizers[:i], obj.ObjectMeta.Finalizers[i+1:]...)
+			break
+		}
+	}
+}
+
+const finalizerName = "controller.snapshot/finalizer"
+
+// returns true if object was updated and error if any error occured
+func (r *SnapshotReconciler) updateSnapshotFinalizer(
+	ctx context.Context,
+	obj *integrityv1.Snapshot,
+) (bool, error) {
+	var isFound bool
+	for _, v := range obj.ObjectMeta.Finalizers {
+		// if strings.Contains(v, finalizerName) {
+		r.Log.V(1).Info("finalizer found", "finalizer", v)
+		if v == finalizerName {
+			isFound = true
+			break
+		}
+	}
+
+	if !isFound {
+		r.Log.V(1).Info("updating finalizer", "snapshot", obj.Name)
+		obj.ObjectMeta.Finalizers = append(obj.ObjectMeta.Finalizers, finalizerName)
+		err := r.Update(ctx, obj)
+		if err != nil {
+			r.Log.Error(err, "unable to update finalizer")
+			return false, err
+		}
+		return true, nil
+	}
+	return false, nil
+}
+
+func (r *SnapshotReconciler) uploadSnapshot(
+	ctx context.Context,
+	snapshot integrityv1.Snapshot,
+	req reconcile.Request,
+) error {
 	ms, err := r.minIOStorage(ctx, r.Log)
 	if err != nil {
 		r.Log.Error(err, "unable to get MinIO client")
 		return err
 	}
 
+	// TODO: move to MinIO
 	imageInfo := strings.Split(snapshot.Spec.Image, ":")
 	objName := req.NamespacedName.Namespace + "/" + imageInfo[0] + "/" + imageInfo[1]
 
@@ -103,14 +187,35 @@ func (r *SnapshotReconciler) uploadSnapshot(ctx context.Context, snapshot integr
 		return err
 	}
 	r.Log.Info("snapshot saved", "image", snapshot.Spec.Image)
+	r.Log.Info("") // TODO: remove this
 
-	snapshot.Status.IsUploaded = true
-	if err := r.Status().Update(ctx, &snapshot); err != nil {
-		r.Log.Error(err, "unable to update snapshot status")
-		return err
-	}
-	r.Log.V(1).Info("snapshot status updated", "snapshot.Status", snapshot.Status)
+	// snapshot.Status.IsUploaded = true
+	// if err := r.Status().Update(ctx, &snapshot); err != nil {
+	// 	r.Log.Error(err, "unable to update snapshot status")
+	// 	return err
+	// }
+	// r.Log.V(1).Info("snapshot status updated", "snapshot.Status", snapshot.Status)
 
+	return nil
+}
+
+// removes data related to @obj from the MinIO storage
+func (r *SnapshotReconciler) removeSnapshot(ctx context.Context, obj *integrityv1.Snapshot) error {
+	// imageInfo := strings.Split(obj.Spec.Image, ":")
+	// objName := obj.Namespace + "/" + imageInfo[0] + "/" + imageInfo[1]
+	// ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	// defer cancel()
+
+	// ms, err := r.minIOStorage(ctx, r.Log)
+	// if err != nil {
+	// 	r.Log.Error(err, "unable to get MinIO client")
+	// 	return err
+	// }
+	// // TODO: "integrity"
+	// if err = ms.Remove(ctx, "integrity", objName); err != nil {
+	// 	r.Log.Error(err, "unable to remove object from MinIO storage", "snapshot", obj.Name)
+	// 	return err
+	// }
 	return nil
 }
 
@@ -119,7 +224,10 @@ var (
 	minioInitialized bool
 )
 
-func (r *SnapshotReconciler) minIOStorage(ctx context.Context, l logr.Logger) (*mstorage.Storage, error) {
+func (r *SnapshotReconciler) minIOStorage(
+	ctx context.Context,
+	l logr.Logger,
+) (*mstorage.Storage, error) {
 	minioOnce.Do(func() {
 		// find the secret "minio" in the "minio" namespace
 		secret := &corev1.Secret{}
@@ -127,12 +235,8 @@ func (r *SnapshotReconciler) minIOStorage(ctx context.Context, l logr.Logger) (*
 			r.Log.Error(err, "secret not found")
 			return
 		}
-		// r.Log.Info("minio secret found", "secret.Data", secret.Data)
 		user := string(secret.Data["root-user"])
-		// r.Log.Info("base64", "user", user)
 		password := string(secret.Data["root-password"])
-		// r.Log.Info("base64", "password", password)
-
 		viper.Set("minio-access-key", user)
 		viper.Set("minio-secret-key", password)
 
