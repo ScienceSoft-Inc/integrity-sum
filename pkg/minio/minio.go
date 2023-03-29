@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/minio/minio-go/v7"
@@ -24,13 +25,13 @@ const (
 	MsgFailedCreateBucket   string = "failed to create bucket: %w"
 )
 
-const defaultBucketName = "integrity"
+const DefaultBucketName = "integrity"
 
 func init() {
 	fsMinIO := pflag.NewFlagSet("minio", pflag.ExitOnError)
 	fsMinIO.Bool("minio-enabled", false, "enable MinIO")
 	fsMinIO.String("minio-host", "minio.minio.svc.cluster.local:9000", "MinIO host")
-	fsMinIO.String("minio-bucket", defaultBucketName, "MinIO bucket name")
+	fsMinIO.String("minio-bucket", DefaultBucketName, "MinIO bucket name")
 
 	viper.BindEnv("minio-access-key", "MINIO_SERVER_USER")
 	viper.BindEnv("minio-secret-key", "MINIO_SERVER_PASSWORD")
@@ -43,12 +44,12 @@ func init() {
 }
 
 // NewMinIOClient returns the MinIO client
-func NewMinIOClient(host string, log *logrus.Logger) (*minio.Client, error) {
+func NewMinIOClient(host string) (*minio.Client, error) {
 	accessKeyID := viper.GetString("minio-access-key")
 	secretAccessKey := viper.GetString("minio-secret-key")
 	useSSL := false
 
-	log.Debug("initializing MinIO client")
+	logrus.Debug("initializing MinIO client")
 	client, err := minio.New(host, &minio.Options{
 		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
 		Secure: useSSL,
@@ -56,7 +57,7 @@ func NewMinIOClient(host string, log *logrus.Logger) (*minio.Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf(MsgFailedInitiateClient, err)
 	}
-	log.Debug("MinIO client initialized")
+	logrus.Debug("MinIO client initialized")
 	return client, nil
 }
 
@@ -81,7 +82,7 @@ func NewStorage(log *logrus.Logger) (*Storage, error) {
 	var err error
 	once.Do(func() {
 		var client *minio.Client
-		client, err = NewMinIOClient(viper.GetString("minio-host"), log)
+		client, err = NewMinIOClient(viper.GetString("minio-host"))
 		if err != nil {
 			return
 		}
@@ -164,4 +165,16 @@ func (s *Storage) CreateBucketIfNotExists(ctx context.Context, bucketName string
 // ListBuckets returns a list of all buckets in the MinIO server
 func (s *Storage) ListBuckets(ctx context.Context) ([]minio.BucketInfo, error) {
 	return s.client.ListBuckets(ctx)
+}
+
+// BuildObjectName returns the object name for the given @namespace and @image.
+//
+// An @image has the following format: imageName:imageTag
+// Returns: namespace/imageName/imageTag
+func BuildObjectName(namespace, image string) string {
+	imageInfo := strings.Split(image, ":")
+	if len(imageInfo) != 2 {
+		return ""
+	}
+	return namespace + "/" + imageInfo[0] + "/" + imageInfo[1]
 }
