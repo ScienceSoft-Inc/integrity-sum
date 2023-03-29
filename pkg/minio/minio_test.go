@@ -208,21 +208,24 @@ func TestCreateBucket(t *testing.T) {
 	assert.NoError(t, err, "cannot create bucket: %v", err)
 }
 
-func TestSaveLoadObject(t *testing.T) {
+func TestSaveLoadRemoveObject(t *testing.T) {
 	const (
 		testMsg = "test-data"
 		testObj = "test-object"
 	)
-	ctxLog, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	err := Instance().CreateBucketIfNotExists(ctxLog, defaultBucketName)
+	err := Instance().CreateBucketIfNotExists(ctx, DefaultBucketName)
 	assert.NoError(t, err, "cannot create bucket: %v", err)
 
-	err = Instance().Save(ctxLog, defaultBucketName, testObj, []byte(testMsg))
+	err = Instance().Save(ctx, DefaultBucketName, testObj, []byte(testMsg))
 	assert.NoError(t, err, "cannot save data: %v", err)
 
-	data, err := Instance().Load(ctxLog, defaultBucketName, testObj)
+	data, err := Instance().Load(ctx, DefaultBucketName, testObj)
 	assert.NoError(t, err, "cannot load data: %v", err)
 	assert.Equal(t, testMsg, string(data))
+
+	err = Instance().Remove(ctx, DefaultBucketName, testObj)
+	assert.NoError(t, err, "cannot remove data: %v", err)
 }

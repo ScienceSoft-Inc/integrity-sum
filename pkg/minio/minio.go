@@ -18,11 +18,12 @@ import (
 
 // Error messages
 const (
-	MsgFailedInitiateClient string = "failed to initiate MinIO client: %w"
-	MsgFailedUpload         string = "failed to upload object: %w"
-	MsgFailedLoad           string = "failed to load object: %w"
-	MsgFailedGetInfo        string = "failed to get info for object: %w"
 	MsgFailedCreateBucket   string = "failed to create bucket: %w"
+	MsgFailedGetInfo        string = "failed to get info for object: %w"
+	MsgFailedInitiateClient string = "failed to initiate MinIO client: %w"
+	MsgFailedLoad           string = "failed to load object: %w"
+	MsgFailedRemove         string = "failed to remove object: %w"
+	MsgFailedUpload         string = "failed to upload object: %w"
 )
 
 const DefaultBucketName = "integrity"
@@ -139,6 +140,16 @@ func (s *Storage) Load(ctx context.Context, bucketName, objectName string) ([]by
 	return ioutil.ReadAll(r)
 }
 
+// Remove removes the @objName from the @bucketName
+func (s *Storage) Remove(ctx context.Context, bucketName string, objName string) error {
+	err := s.client.RemoveObject(ctx, bucketName, objName, minio.RemoveObjectOptions{})
+	if err != nil {
+		return fmt.Errorf(MsgFailedRemove, err)
+	}
+	s.log.WithField("objectName", objName).Debug("removed successfully")
+	return nil
+}
+
 // CreateBucketIfNotExists creates a new bucket with the given @bucketName if it
 // does not exist
 func (s *Storage) CreateBucketIfNotExists(ctx context.Context, bucketName string) error {
@@ -173,8 +184,5 @@ func (s *Storage) ListBuckets(ctx context.Context) ([]minio.BucketInfo, error) {
 // Returns: namespace/imageName/imageTag
 func BuildObjectName(namespace, image string) string {
 	imageInfo := strings.Split(image, ":")
-	if len(imageInfo) != 2 {
-		return ""
-	}
 	return namespace + "/" + imageInfo[0] + "/" + imageInfo[1]
 }
