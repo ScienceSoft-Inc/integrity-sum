@@ -8,6 +8,8 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: crd
   name: snapshot-sample
+  finalizers:
+  - controller.snapshot/finalizer
 spec:
   image: integrity:latest
   hashes: Zm9vYmFyYQ==

@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	integrityv1 "integrity/snapshot/api/v1"
@@ -69,23 +70,10 @@ func (r *SnapshotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 	r.Log.V(1).Info("snapshot found", "image", snapshot.Spec.Image)
 
-	updated, err := r.updateSnapshotFinalizer(ctx, &snapshot)
-	if err != nil {
-		r.Log.Error(err, "unable to update snapshot finalizer")
-		return ctrl.Result{}, err
-	}
-	if updated {
-		// object has changed and will be uploaded to MinIO during next call to
-		// reconcile to prevent uploading twice
-		return ctrl.Result{}, nil
-	}
-
-	// TODO: //controllerutil.AddFinalizer(cronJob, finalizerName)
-
 	// check that deletion process is started
 	if snapshot.DeletionTimestamp != nil {
 		r.Log.V(1).Info("snapshot is being deleted", "snapshot", snapshot.Name)
-		if err = r.deleteSnapshot(ctx, &snapshot); err != nil {
+		if err := r.deleteSnapshot(ctx, &snapshot); err != nil {
 			r.Log.Error(err, "unable to delete snapshot", "snapshot", snapshot.Name)
 			return ctrl.Result{}, err
 		}
@@ -94,8 +82,7 @@ func (r *SnapshotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	// if !snapshot.Status.IsUploaded {
-	err = r.uploadSnapshot(ctx, snapshot, req)
-	if err != nil {
+	if err := r.uploadSnapshot(ctx, snapshot, req); err != nil {
 		r.Log.Error(err, "unable to upload snapshot")
 		return ctrl.Result{}, err
 	}
@@ -113,7 +100,7 @@ func (r *SnapshotReconciler) deleteSnapshot(ctx context.Context, obj *integrityv
 	}
 
 	r.Log.V(1).Info("removing finalizer", "snapshot", obj.Name)
-	r.removeFinalizer(obj)
+	controllerutil.RemoveFinalizer(obj, finalizerName)
 	if err := r.Update(ctx, obj); err != nil {
 		r.Log.Error(err, "unable to update/remove finalizer", "snapshot", obj.Name)
 		return err
@@ -121,44 +108,7 @@ func (r *SnapshotReconciler) deleteSnapshot(ctx context.Context, obj *integrityv
 	return nil
 }
 
-func (r *SnapshotReconciler) removeFinalizer(obj *integrityv1.Snapshot) {
-	for i, v := range obj.ObjectMeta.Finalizers {
-		if v == finalizerName {
-			obj.ObjectMeta.Finalizers = append(obj.ObjectMeta.Finalizers[:i], obj.ObjectMeta.Finalizers[i+1:]...)
-			break
-		}
-	}
-}
-
 const finalizerName = "controller.snapshot/finalizer"
-
-// returns true if object was updated and error if any error occured
-func (r *SnapshotReconciler) updateSnapshotFinalizer(
-	ctx context.Context,
-	obj *integrityv1.Snapshot,
-) (bool, error) {
-	var isFound bool
-	for _, v := range obj.ObjectMeta.Finalizers {
-		// if strings.Contains(v, finalizerName) {
-		r.Log.V(1).Info("finalizer found", "finalizer", v)
-		if v == finalizerName {
-			isFound = true
-			break
-		}
-	}
-
-	if !isFound {
-		r.Log.V(1).Info("updating finalizer", "snapshot", obj.Name)
-		obj.ObjectMeta.Finalizers = append(obj.ObjectMeta.Finalizers, finalizerName)
-		err := r.Update(ctx, obj)
-		if err != nil {
-			r.Log.Error(err, "unable to update finalizer")
-			return false, err
-		}
-		return true, nil
-	}
-	return false, nil
-}
 
 func (r *SnapshotReconciler) uploadSnapshot(
 	ctx context.Context,
@@ -187,7 +137,6 @@ func (r *SnapshotReconciler) uploadSnapshot(
 		return err
 	}
 	r.Log.Info("snapshot saved", "image", snapshot.Spec.Image)
-	r.Log.Info("") // TODO: remove this
 
 	// snapshot.Status.IsUploaded = true
 	// if err := r.Status().Update(ctx, &snapshot); err != nil {
