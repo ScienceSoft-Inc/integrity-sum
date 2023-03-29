@@ -64,19 +64,15 @@ func main() {
 
 	var minioHost string
 	flag.StringVar(&minioHost, "minio-host", "minio.minio.svc.cluster.local:9000", "MinIO host")
+	verboseLevel := flag.Int("v", 0, "verbose level")
 
 	opts := zap.Options{
 		Development: true,
 	}
 	opts.BindFlags(flag.CommandLine)
-
-	// pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-	// pflag.Parse()
 	flag.Parse()
-
-	viper.Set("minio-host", minioHost)
-
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	viper.Set("minio-host", minioHost)
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
@@ -102,33 +98,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	// l := logrus.New()
-	// l.SetLevel(logrus.DebugLevel)
-	// {
-	// 	r := mgr.GetClient()
-	// 	secret := &corev1.Secret{}
-	// 	if err := r.Get(context.Background(), client.ObjectKey{Namespace: "minio", Name: "minio"}, secret); err != nil {
-	// 		setupLog.Error(err, "secret not found")
-	// 	}
-	// 	setupLog.Info("minio secret found", "secret.Data", secret.Data)
-	// 	user := string(secret.Data["root-user"])
-	// 	setupLog.Info("base64", "user", user)
-	// 	password := string(secret.Data["root-password"])
-	// 	setupLog.Info("base64", "password", password)
-	// }
-
-	// setupLog.Info("init MinIO client")
-	// mClient, err := minio.NewMinIOClient(viper.GetString("minio-host"), l)
-	// if err != nil {
-	// 	setupLog.Error(err, "unable to create minio client")
-	// 	os.Exit(1)
-	// }
-	// setupLog.Info("init MinIO client success")
-
 	if err = (&controllers.SnapshotReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-		// Minio:  mClient,
+		Log:    ctrl.Log.WithName("controllers").WithName("Snapshot").V(*verboseLevel),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Snapshot")
 		os.Exit(1)

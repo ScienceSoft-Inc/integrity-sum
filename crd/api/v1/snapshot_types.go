@@ -25,17 +25,13 @@ import (
 
 // SnapshotSpec defines the desired state of Snapshot
 type SnapshotSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
 	Image        string `json:"image,omitempty"`
 	Base64Hashes string `json:"hashes,omitempty"`
 }
 
 // SnapshotStatus defines the observed state of Snapshot
 type SnapshotStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	IsUploaded bool `json:"isUploaded,omitempty"`
 }
 
 //+kubebuilder:object:root=true

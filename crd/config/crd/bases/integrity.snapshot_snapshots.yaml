@@ -42,6 +42,9 @@ spec:
             type: object
           status:
             description: SnapshotStatus defines the observed state of Snapshot
+            properties:
+              isUploaded:
+                type: boolean
             type: object
         type: object
     served: true

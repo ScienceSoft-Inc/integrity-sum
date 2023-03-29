@@ -30,7 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	integrityv1 "integrity/snapshot/api/v1"
 
@@ -41,6 +41,7 @@ import (
 type SnapshotReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	Log    logr.Logger
 	// Minio  *minio.Client
 }
 
@@ -60,22 +61,31 @@ type SnapshotReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *SnapshotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
-
-	l := log.FromContext(ctx)
+	// l := log.FromContext(ctx)
 	var snapshot integrityv1.Snapshot
 	if err := r.Get(ctx, req.NamespacedName, &snapshot); err != nil {
-		l.Error(err, "unable to fetch snapshot")
+		r.Log.Error(err, "unable to fetch snapshot")
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-	l.Info("snapshot found", "snapshot.Spec", snapshot.Spec)
+	r.Log.V(1).Info("snapshot found", "image", snapshot.Spec.Image)
 
-	// TODO: if status - not uploaded
-
-	ms, err := r.minIOStorage(ctx, l)
+	// if !snapshot.Status.IsUploaded {
+	err := r.uploadSnapshot(ctx, snapshot, req)
 	if err != nil {
-		l.Error(err, "unable to get minio client")
-		return ctrl.Result{}, client.IgnoreNotFound(err)
+		r.Log.Error(err, "unable to upload snapshot")
+		return ctrl.Result{}, err
+	}
+	// }
+	r.Log.V(1).Info("all snapshots uploaded")
+
+	return ctrl.Result{}, nil
+}
+
+func (r *SnapshotReconciler) uploadSnapshot(ctx context.Context, snapshot integrityv1.Snapshot, req reconcile.Request) error {
+	ms, err := r.minIOStorage(ctx, r.Log)
+	if err != nil {
+		r.Log.Error(err, "unable to get MinIO client")
+		return err
 	}
 
 	imageInfo := strings.Split(snapshot.Spec.Image, ":")
@@ -83,17 +93,25 @@ func (r *SnapshotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	if err = ms.Save(ctx, "integrity", // TODO: mstorage.DefaultBucketName "integrity"
-		objName, // TODO: mstorage.BuildObjectName(req.NamespacedName.Namespace, snapshot.Spec.Image),
+
+	// TODO: mstorage.DefaultBucketName "integrity"
+	// TODO: mstorage.BuildObjectName(req.NamespacedName.Namespace, snapshot.Spec.Image),
+	if err = ms.Save(ctx, "integrity",
+		objName,
 		[]byte(snapshot.Spec.Base64Hashes),
 	); err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
-	l.Info("snapshot saved", "snapshot.Spec", snapshot.Spec)
+	r.Log.Info("snapshot saved", "image", snapshot.Spec.Image)
 
-	// TODO: update status
+	snapshot.Status.IsUploaded = true
+	if err := r.Status().Update(ctx, &snapshot); err != nil {
+		r.Log.Error(err, "unable to update snapshot status")
+		return err
+	}
+	r.Log.V(1).Info("snapshot status updated", "snapshot.Status", snapshot.Status)
 
-	return ctrl.Result{}, nil
+	return nil
 }
 
 var (
@@ -106,20 +124,20 @@ func (r *SnapshotReconciler) minIOStorage(ctx context.Context, l logr.Logger) (*
 		// find the secret "minio" in the "minio" namespace
 		secret := &corev1.Secret{}
 		if err := r.Get(ctx, client.ObjectKey{Namespace: "minio", Name: "minio"}, secret); err != nil {
-			l.Error(err, "secret not found")
+			r.Log.Error(err, "secret not found")
 			return
 		}
-		// l.Info("minio secret found", "secret.Data", secret.Data)
+		// r.Log.Info("minio secret found", "secret.Data", secret.Data)
 		user := string(secret.Data["root-user"])
-		// l.Info("base64", "user", user)
+		// r.Log.Info("base64", "user", user)
 		password := string(secret.Data["root-password"])
-		// l.Info("base64", "password", password)
+		// r.Log.Info("base64", "password", password)
 
 		viper.Set("minio-access-key", user)
 		viper.Set("minio-secret-key", password)
 
 		if _, err := mstorage.NewStorage(logrus.New()); err != nil {
-			l.Error(err, "unable to create minio client")
+			r.Log.Error(err, "unable to create minio client")
 			return
 		}
 		minioInitialized = true

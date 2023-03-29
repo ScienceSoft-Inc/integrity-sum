@@ -6,6 +6,20 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
+  - apps
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - secrets/status
+  verbs:
+  - get
+- apiGroups:
   - integrity.snapshot
   resources:
   - snapshots
