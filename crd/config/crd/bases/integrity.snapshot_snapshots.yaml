@@ -15,7 +15,14 @@ spec:
     singular: snapshot
   scope: Namespaced
   versions:
-  - name: v1
+  - additionalPrinterColumns:
+    - jsonPath: .spec.image
+      name: Image
+      type: string
+    - jsonPath: .status.isUploaded
+      name: Uploaded
+      type: string
+    name: v1
     schema:
       openAPIV3Schema:
         description: Snapshot is the Schema for the snapshots API

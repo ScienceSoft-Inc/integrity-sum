@@ -36,6 +36,8 @@ type SnapshotStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="Image",type=string,JSONPath=`.spec.image`
+//+kubebuilder:printcolumn:name="Uploaded",type=string,JSONPath=`.status.isUploaded`
 
 // Snapshot is the Schema for the snapshots API
 type Snapshot struct {

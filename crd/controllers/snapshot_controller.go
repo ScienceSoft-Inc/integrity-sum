@@ -19,7 +19,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -27,6 +26,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -43,8 +43,9 @@ type SnapshotReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 	Log    logr.Logger
-	// Minio  *minio.Client
 }
+
+const finalizerName = "controller.snapshot/finalizer"
 
 //+kubebuilder:rbac:groups=integrity.snapshot,resources=snapshots,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=integrity.snapshot,resources=snapshots/status,verbs=get;update;patch
@@ -65,10 +66,13 @@ func (r *SnapshotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	// l := log.FromContext(ctx)
 	var snapshot integrityv1.Snapshot
 	if err := r.Get(ctx, req.NamespacedName, &snapshot); err != nil {
-		// r.Log.Error(err, "unable to fetch snapshot")
+		if !errors.IsNotFound(err) {
+			r.Log.Error(err, "unable to fetch snapshot")
+		}
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-	r.Log.V(1).Info("snapshot found", "image", snapshot.Spec.Image)
+	r.Log.V(1).Info("snapshot found", "image", snapshot.Spec.Image,
+		"IsUploaded", snapshot.Status.IsUploaded)
 
 	// check that deletion process is started
 	if snapshot.DeletionTimestamp != nil {
@@ -81,19 +85,29 @@ func (r *SnapshotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, nil
 	}
 
-	// if !snapshot.Status.IsUploaded {
+	if !snapshot.Status.IsUploaded {
+		snapshot.Status.IsUploaded = true
+		if err := r.Status().Update(ctx, &snapshot); err != nil {
+			r.Log.Error(err, "unable to update snapshot status", "snapshot", snapshot.Name)
+			return ctrl.Result{}, err
+		}
+		r.Log.V(1).Info("snapshot status has been updated", "snapshot", snapshot.Name,
+			"IsUploaded", snapshot.Status.IsUploaded)
+		// since the object was changed, it will be uploaded with next reconcile
+		return ctrl.Result{}, nil
+	}
+
 	if err := r.uploadSnapshot(ctx, snapshot, req); err != nil {
 		r.Log.Error(err, "unable to upload snapshot")
 		return ctrl.Result{}, err
 	}
-	// }
 	r.Log.V(1).Info("all snapshots uploaded")
 
 	return ctrl.Result{}, nil
 }
 
+// ..deletion process for the @obj
 func (r *SnapshotReconciler) deleteSnapshot(ctx context.Context, obj *integrityv1.Snapshot) error {
-	// removing object from the MinIO storage
 	if err := r.removeSnapshot(ctx, obj); err != nil {
 		r.Log.Error(err, "unable to delete object", "snapshot", obj.Name)
 		return err
@@ -108,8 +122,7 @@ func (r *SnapshotReconciler) deleteSnapshot(ctx context.Context, obj *integrityv
 	return nil
 }
 
-const finalizerName = "controller.snapshot/finalizer"
-
+// ..uploads data related to the @obj to the MinIO storage
 func (r *SnapshotReconciler) uploadSnapshot(
 	ctx context.Context,
 	snapshot integrityv1.Snapshot,
@@ -121,50 +134,35 @@ func (r *SnapshotReconciler) uploadSnapshot(
 		return err
 	}
 
-	// TODO: move to MinIO
-	imageInfo := strings.Split(snapshot.Spec.Image, ":")
-	objName := req.NamespacedName.Namespace + "/" + imageInfo[0] + "/" + imageInfo[1]
-
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	// TODO: mstorage.DefaultBucketName "integrity"
-	// TODO: mstorage.BuildObjectName(req.NamespacedName.Namespace, snapshot.Spec.Image),
-	if err = ms.Save(ctx, "integrity",
-		objName,
+	if err = ms.Save(ctx, mstorage.DefaultBucketName,
+		mstorage.BuildObjectName(req.NamespacedName.Namespace, snapshot.Spec.Image),
 		[]byte(snapshot.Spec.Base64Hashes),
 	); err != nil {
 		return err
 	}
 	r.Log.Info("snapshot saved", "image", snapshot.Spec.Image)
-
-	// snapshot.Status.IsUploaded = true
-	// if err := r.Status().Update(ctx, &snapshot); err != nil {
-	// 	r.Log.Error(err, "unable to update snapshot status")
-	// 	return err
-	// }
-	// r.Log.V(1).Info("snapshot status updated", "snapshot.Status", snapshot.Status)
-
 	return nil
 }
 
-// removes data related to @obj from the MinIO storage
+// ..removes data related to @obj from the MinIO storage
 func (r *SnapshotReconciler) removeSnapshot(ctx context.Context, obj *integrityv1.Snapshot) error {
-	// imageInfo := strings.Split(obj.Spec.Image, ":")
-	// objName := obj.Namespace + "/" + imageInfo[0] + "/" + imageInfo[1]
-	// ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	// defer cancel()
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
 
-	// ms, err := r.minIOStorage(ctx, r.Log)
-	// if err != nil {
-	// 	r.Log.Error(err, "unable to get MinIO client")
-	// 	return err
-	// }
-	// // TODO: "integrity"
-	// if err = ms.Remove(ctx, "integrity", objName); err != nil {
-	// 	r.Log.Error(err, "unable to remove object from MinIO storage", "snapshot", obj.Name)
-	// 	return err
-	// }
+	ms, err := r.minIOStorage(ctx, r.Log)
+	if err != nil {
+		r.Log.Error(err, "unable to get MinIO client")
+		return err
+	}
+
+	objName := mstorage.BuildObjectName(obj.Namespace, obj.Spec.Image)
+	if err = ms.Remove(ctx, mstorage.DefaultBucketName, objName); err != nil {
+		r.Log.Error(err, "unable to remove object from MinIO storage", "snapshot", obj.Name)
+		return err
+	}
 	return nil
 }
 
@@ -173,6 +171,7 @@ var (
 	minioInitialized bool
 )
 
+// ..initializes the MinIO storage and returns it instance
 func (r *SnapshotReconciler) minIOStorage(
 	ctx context.Context,
 	l logr.Logger,

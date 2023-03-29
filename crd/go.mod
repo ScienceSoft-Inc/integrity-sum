@@ -90,5 +90,3 @@ require (
 )
 
 replace github.com/ScienceSoft-Inc/integrity-sum/pkg/minio => ../pkg/minio
-
-// replace github.com/ScienceSoft-Inc/integrity-sum/pkg/minio => /home/sshliayonkin@scnsoft.com/go/src/github.com/ScienceSoft-Inc/integrity-sum/pkg/minio
