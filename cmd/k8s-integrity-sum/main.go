@@ -49,6 +49,8 @@ func main() {
 		log.Fatalf("failed connect to database: %w", err)
 	}
 
+	k8s.InitKubeData()
+
 	// 	// Create alert sender
 	if viper.GetBool("splunk-enabled") {
 		splunkUrl := viper.GetString("splunk-url")

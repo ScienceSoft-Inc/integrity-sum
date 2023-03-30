@@ -250,4 +250,4 @@ ensure-export-dir:
 
 .PHONY: clear-snapshot
 clear-snapshot:
-	@-rm -rf $(DOCKER_FS_DIR)/* $(BIN)/snapshot.*.txt
+	@-rm -rf $(DOCKER_FS_DIR)/* $(SNAPSHOT_OUTPUT)

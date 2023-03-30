@@ -3,14 +3,16 @@ package k8s
 import (
 	"context"
 	"fmt"
-	"github.com/ScienceSoft-Inc/integrity-sum/internal/logger"
+	"os"
+	"strings"
+
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"os"
-	"strings"
+
+	"github.com/ScienceSoft-Inc/integrity-sum/internal/logger"
 )
 
 //go:generate mockgen -source=k8s.go -destination=mocks/mock_k8s.go
@@ -44,12 +46,8 @@ type KubeClient struct {
 
 var kubeData *KubeData
 
-func init() {
-	initKubeData()
-}
-
 // initKubeData initializes kubeData global variable
-func initKubeData() {
+func InitKubeData() {
 	log := logger.Init(viper.GetString("verbose"))
 	namespaceBytes, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
 	if err != nil {
