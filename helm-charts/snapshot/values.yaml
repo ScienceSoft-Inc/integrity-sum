@@ -1,0 +1,9 @@
+namePrefix: snapshot
+finalizers:
+- controller.snapshot/finalizer
+
+snapshots:
+- imageName: integrity
+  imageTag: latest
+  algorithm: sha256
+  filePath: files/snapshot.SHA256
