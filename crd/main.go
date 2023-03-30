@@ -53,19 +53,20 @@ func init() {
 }
 
 func main() {
-	var metricsAddr string
-	var enableLeaderElection bool
-	var probeAddr string
+	var (
+		metricsAddr          string
+		enableLeaderElection bool
+		probeAddr            string
+		minioHost            string
+		verboseLevel         int
+	)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
-
-	var minioHost string
 	flag.StringVar(&minioHost, "minio-host", "minio.minio.svc.cluster.local:9000", "MinIO host")
-	verboseLevel := flag.Int("v", 0, "verbose level")
-
+	flag.IntVar(&verboseLevel, "v", 0, "verbose level")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -101,7 +102,7 @@ func main() {
 	if err = (&controllers.SnapshotReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-		Log:    ctrl.Log.WithName("controllers").WithName("Snapshot").V(*verboseLevel),
+		Log:    ctrl.Log.WithName("controllers").WithName("Snapshot").V(verboseLevel),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Snapshot")
 		os.Exit(1)
