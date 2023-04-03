@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"crypto/md5"
 	"fmt"
 	integrityv1 "integrity/snapshot/api/v1"
 	"sync"
@@ -61,14 +62,24 @@ const finalizerName = "controller.snapshot/finalizer"
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *SnapshotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	// l := log.FromContext(ctx)
+	updateStatus := func(ctx context.Context, obj *integrityv1.Snapshot, uploaded bool) error {
+		if obj.Status.IsUploaded != uploaded {
+			obj.Status.IsUploaded = uploaded
+			if err := r.Status().Update(ctx, obj); err != nil {
+				r.Log.Error(err, "unable to update snapshot status", "snapshot", obj.Name)
+				return err
+			}
+			r.Log.V(1).Info("snapshot status has been updated", "snapshot", obj.Name,
+				"IsUploaded", obj.Status.IsUploaded)
+		}
+		return nil
+	}
+
 	ms, err := r.minIOStorage(ctx, r.Log)
 	if err != nil {
 		r.Log.Error(err, "unable to get MinIO client")
 		return ctrl.Result{}, err
 	}
-
-	// TODO: status=false instead of err
 
 	var snapshot integrityv1.Snapshot
 	if err := r.Get(ctx, req.NamespacedName, &snapshot); err != nil {
@@ -91,24 +102,20 @@ func (r *SnapshotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, nil
 	}
 
-	if !snapshot.Status.IsUploaded {
-		snapshot.Status.IsUploaded = true
-		if err := r.Status().Update(ctx, &snapshot); err != nil {
-			r.Log.Error(err, "unable to update snapshot status", "snapshot", snapshot.Name)
-			return ctrl.Result{}, err
+	// upload if needed
+	controlHash := md5hash(snapshot.Spec.Base64Hashes)
+	if controlHash != snapshot.Status.ControlHash || !snapshot.Status.IsUploaded {
+		var isUpdated bool
+		if err := r.uploadSnapshot(ctx, ms, snapshot, req); err != nil {
+			r.Log.Error(err, "unable to upload snapshot")
+			_ = updateStatus(ctx, &snapshot, isUpdated)
+			return ctrl.Result{}, nil
 		}
-		r.Log.V(1).Info("snapshot status has been updated", "snapshot", snapshot.Name,
-			"IsUploaded", snapshot.Status.IsUploaded)
-		// since the object was changed, it will be uploaded with next reconcile
-		return ctrl.Result{}, nil
-		// TODO: Actually, the object was not uploaded yet.
-	}
 
-	if err := r.uploadSnapshot(ctx, ms, snapshot, req); err != nil {
-		r.Log.Error(err, "unable to upload snapshot")
-		return ctrl.Result{}, err
+		snapshot.Status.ControlHash, isUpdated = controlHash, true
+		_ = updateStatus(ctx, &snapshot, isUpdated)
+		r.Log.V(1).Info("all snapshots uploaded")
 	}
-	r.Log.V(1).Info("all snapshots uploaded")
 
 	return ctrl.Result{}, nil
 }
@@ -204,6 +211,13 @@ func (r *SnapshotReconciler) minIOStorage(
 	}
 
 	return mstorage.Instance(), nil
+}
+
+// ..calculates and returns md5 hash of the string
+func md5hash(s string) string {
+	h := md5.New()
+	h.Write([]byte(s))
+	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
 // SetupWithManager sets up the controller with the Manager.

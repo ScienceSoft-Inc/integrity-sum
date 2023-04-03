@@ -237,6 +237,8 @@ HELM_CHART_SNAPSHOT     := helm-charts/snapshot
 helm-snapshot:
 	@helm upgrade -i $(RELEASE_NAME_SNAPSHOT) $(HELM_CHART_SNAPSHOT)
 
+# Create and install snapshot CRD with controller
+
 CRD_MAKE := make -C crd
 
 .PHONY: crd-controller-build

@@ -32,13 +32,15 @@ type SnapshotSpec struct {
 
 // SnapshotStatus defines the observed state of Snapshot
 type SnapshotStatus struct {
-	IsUploaded bool `json:"isUploaded,omitempty"`
+	IsUploaded  bool   `json:"isUploaded,omitempty"`
+	ControlHash string `json:"controlHash,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:printcolumn:name="Image",type=string,JSONPath=`.spec.image`
 //+kubebuilder:printcolumn:name="Uploaded",type=string,JSONPath=`.status.isUploaded`
+//+kubebuilder:printcolumn:name="hash",type=string,JSONPath=`.status.controlHash`
 
 // Snapshot is the Schema for the snapshots API
 type Snapshot struct {

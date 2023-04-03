@@ -22,6 +22,9 @@ spec:
     - jsonPath: .status.isUploaded
       name: Uploaded
       type: string
+    - jsonPath: .status.controlHash
+      name: hash
+      type: string
     name: v1
     schema:
       openAPIV3Schema:
@@ -52,6 +55,8 @@ spec:
           status:
             description: SnapshotStatus defines the observed state of Snapshot
             properties:
+              controlHash:
+                type: string
               isUploaded:
                 type: boolean
             type: object
