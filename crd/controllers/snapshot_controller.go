@@ -19,9 +19,9 @@ package controllers
 import (
 	"context"
 	"fmt"
+	integrityv1 "integrity/snapshot/api/v1"
 	"sync"
 	"time"
-	integrityv1 "integrity/snapshot/api/v1"
 
 	"github.com/go-logr/logr"
 	"github.com/sirupsen/logrus"
@@ -143,13 +143,14 @@ func (r *SnapshotReconciler) uploadSnapshot(
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
+	objectName := mstorage.BuildObjectName(req.NamespacedName.Namespace, o.Spec.Image, o.Spec.Algorithm)
 	if err := ms.Save(ctx, mstorage.DefaultBucketName,
-		mstorage.BuildObjectName(req.NamespacedName.Namespace, o.Spec.Image),
+		objectName,
 		[]byte(o.Spec.Base64Hashes),
 	); err != nil {
 		return err
 	}
-	r.Log.Info("snapshot saved", "image", o.Spec.Image, "IsUploaded", o.Status.IsUploaded)
+	r.Log.Info("snapshot saved", "objectName", objectName, "IsUploaded", o.Status.IsUploaded)
 	return nil
 }
 
@@ -161,7 +162,7 @@ func (r *SnapshotReconciler) removeSnapshot(
 ) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	objName := mstorage.BuildObjectName(obj.Namespace, obj.Spec.Image)
+	objName := mstorage.BuildObjectName(obj.Namespace, obj.Spec.Image, obj.Spec.Algorithm)
 	if err := ms.Remove(ctx, mstorage.DefaultBucketName, objName); err != nil {
 		r.Log.Error(err, "unable to remove object from MinIO storage", "snapshot", obj.Name)
 		return err

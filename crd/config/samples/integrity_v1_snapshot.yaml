@@ -11,5 +11,6 @@ metadata:
   finalizers:
   - controller.snapshot/finalizer
 spec:
-  image: integrity:latest
+  image: integrity:test
   hashes: Zm9vYmFyYQ==
+  algorithm: sha256

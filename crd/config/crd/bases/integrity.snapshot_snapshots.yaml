@@ -42,6 +42,8 @@ spec:
           spec:
             description: SnapshotSpec defines the desired state of Snapshot
             properties:
+              algorithm:
+                type: string
               hashes:
                 type: string
               image:

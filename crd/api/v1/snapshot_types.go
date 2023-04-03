@@ -27,6 +27,7 @@ import (
 type SnapshotSpec struct {
 	Image        string `json:"image,omitempty"`
 	Base64Hashes string `json:"hashes,omitempty"`
+	Algorithm    string `json:"algorithm,omitempty"`
 }
 
 // SnapshotStatus defines the observed state of Snapshot
