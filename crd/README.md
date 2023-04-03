@@ -1,33 +1,46 @@
 # crd
-// TODO(user): Add simple overview of use/purpose
+
+This project contains a code for creating snapshot CRD and k8s controller for it. Based on `kubebuilder` generated files.
 
 ## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+
+A snapshot CRD is a k8s representation of the image snapshot. It contains a list of files and their hashes encoded into a single base64 string.
+
+A snapshot CRD controller is a tool for managing CRD snapshots. When new CRD is found the controller will read the data from it and upload this data with appropriate MinIO object.
 
 ## Getting Started
+
 You’ll need a Kubernetes cluster to run against. You can use [KIND](https://sigs.k8s.io/kind) to get a local cluster for testing, or run against a remote cluster.
 **Note:** Your controller will automatically use the current context in your kubeconfig file (i.e. whatever cluster `kubectl cluster-info` shows).
 
 ### Running on the cluster
-1. Install Instances of Custom Resources:
 
-```sh
-kubectl apply -f config/samples/
-```
+1. Install Custom Resources Definition into the cluster:
 
-2. Build and push your image to the location specified by `IMG`:
+    ```sh
+    make install
+    ```
 
-```sh
-make docker-build docker-push IMG=<some-registry>/crd:tag
-```
+2. Install Instances of Custom Resources:
 
-3. Deploy the controller to the cluster with the image specified by `IMG`:
+    ```sh
+    kubectl apply -f config/samples/
+    ```
 
-```sh
-make deploy IMG=<some-registry>/crd:tag
-```
+3. Build and push your image to the location specified by `IMG`:
+
+    ```sh
+    make docker-build docker-push IMG=<some-registry>/controller:tag
+    ```
+
+4. Deploy the controller to the cluster with the image specified by `IMG`:
+
+    ```sh
+    make deploy IMG=<some-registry>/controller:tag
+    ```
 
 ### Uninstall CRDs
+
 To delete the CRDs from the cluster:
 
 ```sh
@@ -35,35 +48,13 @@ make uninstall
 ```
 
 ### Undeploy controller
+
 UnDeploy the controller from the cluster:
 
 ```sh
 make undeploy
 ```
 
-## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
-
-### How it works
-This project aims to follow the Kubernetes [Operator pattern](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/).
-
-It uses [Controllers](https://kubernetes.io/docs/concepts/architecture/controller/),
-which provide a reconcile function responsible for synchronizing resources until the desired state is reached on the cluster.
-
-### Test It Out
-1. Install the CRDs into the cluster:
-
-```sh
-make install
-```
-
-2. Run your controller (this will run in the foreground, so switch to a new terminal if you want to leave it running):
-
-```sh
-make run
-```
-
-**NOTE:** You can also run this in one step by running: `make install run`
 
 ### Modifying the API definitions
 If you are editing the API definitions, generate the manifests such as CRs or CRDs using:
@@ -71,6 +62,13 @@ If you are editing the API definitions, generate the manifests such as CRs or CR
 ```sh
 make manifests
 ```
+
+
+## How it works
+This project aims to follow the Kubernetes [Operator pattern](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/).
+
+It uses [Controllers](https://kubernetes.io/docs/concepts/architecture/controller/),
+which provide a reconcile function responsible for synchronizing resources until the desired state is reached on the cluster.
 
 **NOTE:** Run `make --help` for more information on all potential `make` targets
 
@@ -91,4 +89,3 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-
