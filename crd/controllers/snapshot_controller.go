@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"sync"
 	"time"
+	integrityv1 "integrity/snapshot/api/v1"
 
 	"github.com/go-logr/logr"
 	"github.com/sirupsen/logrus"
@@ -32,8 +33,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	integrityv1 "integrity/snapshot/api/v1"
 
 	mstorage "github.com/ScienceSoft-Inc/integrity-sum/pkg/minio"
 )
@@ -50,8 +49,7 @@ const finalizerName = "controller.snapshot/finalizer"
 //+kubebuilder:rbac:groups=integrity.snapshot,resources=snapshots,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=integrity.snapshot,resources=snapshots/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=integrity.snapshot,resources=snapshots/finalizers,verbs=update
-//+kubebuilder:rbac:groups=apps,resources=secrets,verbs=get;list;watch
-//+kubebuilder:rbac:groups=apps,resources=secrets/status,verbs=get
+//+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -64,6 +62,14 @@ const finalizerName = "controller.snapshot/finalizer"
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *SnapshotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	// l := log.FromContext(ctx)
+	ms, err := r.minIOStorage(ctx, r.Log)
+	if err != nil {
+		r.Log.Error(err, "unable to get MinIO client")
+		return ctrl.Result{}, err
+	}
+
+	// TODO: status=false instead of err
+
 	var snapshot integrityv1.Snapshot
 	if err := r.Get(ctx, req.NamespacedName, &snapshot); err != nil {
 		if !errors.IsNotFound(err) {
@@ -77,7 +83,7 @@ func (r *SnapshotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	// check that deletion process is started
 	if snapshot.DeletionTimestamp != nil {
 		r.Log.V(1).Info("snapshot is being deleted", "snapshot", snapshot.Name)
-		if err := r.deleteSnapshot(ctx, &snapshot); err != nil {
+		if err := r.deleteSnapshot(ctx, ms, &snapshot); err != nil {
 			r.Log.Error(err, "unable to delete snapshot", "snapshot", snapshot.Name)
 			return ctrl.Result{}, err
 		}
@@ -95,9 +101,10 @@ func (r *SnapshotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			"IsUploaded", snapshot.Status.IsUploaded)
 		// since the object was changed, it will be uploaded with next reconcile
 		return ctrl.Result{}, nil
+		// TODO: Actually, the object was not uploaded yet.
 	}
 
-	if err := r.uploadSnapshot(ctx, snapshot, req); err != nil {
+	if err := r.uploadSnapshot(ctx, ms, snapshot, req); err != nil {
 		r.Log.Error(err, "unable to upload snapshot")
 		return ctrl.Result{}, err
 	}
@@ -107,8 +114,12 @@ func (r *SnapshotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 }
 
 // ..deletion process for the @obj
-func (r *SnapshotReconciler) deleteSnapshot(ctx context.Context, obj *integrityv1.Snapshot) error {
-	if err := r.removeSnapshot(ctx, obj); err != nil {
+func (r *SnapshotReconciler) deleteSnapshot(
+	ctx context.Context,
+	ms *mstorage.Storage,
+	obj *integrityv1.Snapshot,
+) error {
+	if err := r.removeSnapshot(ctx, ms, obj); err != nil {
 		r.Log.Error(err, "unable to delete object", "snapshot", obj.Name)
 		return err
 	}
@@ -125,41 +136,33 @@ func (r *SnapshotReconciler) deleteSnapshot(ctx context.Context, obj *integrityv
 // ..uploads data related to the @obj to the MinIO storage
 func (r *SnapshotReconciler) uploadSnapshot(
 	ctx context.Context,
-	snapshot integrityv1.Snapshot,
+	ms *mstorage.Storage,
+	o integrityv1.Snapshot,
 	req reconcile.Request,
 ) error {
-	ms, err := r.minIOStorage(ctx, r.Log)
-	if err != nil {
-		r.Log.Error(err, "unable to get MinIO client")
-		return err
-	}
-
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	if err = ms.Save(ctx, mstorage.DefaultBucketName,
-		mstorage.BuildObjectName(req.NamespacedName.Namespace, snapshot.Spec.Image),
-		[]byte(snapshot.Spec.Base64Hashes),
+	if err := ms.Save(ctx, mstorage.DefaultBucketName,
+		mstorage.BuildObjectName(req.NamespacedName.Namespace, o.Spec.Image),
+		[]byte(o.Spec.Base64Hashes),
 	); err != nil {
 		return err
 	}
-	r.Log.Info("snapshot saved", "image", snapshot.Spec.Image)
+	r.Log.Info("snapshot saved", "image", o.Spec.Image, "IsUploaded", o.Status.IsUploaded)
 	return nil
 }
 
 // ..removes data related to @obj from the MinIO storage
-func (r *SnapshotReconciler) removeSnapshot(ctx context.Context, obj *integrityv1.Snapshot) error {
+func (r *SnapshotReconciler) removeSnapshot(
+	ctx context.Context,
+	ms *mstorage.Storage,
+	obj *integrityv1.Snapshot,
+) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-
-	ms, err := r.minIOStorage(ctx, r.Log)
-	if err != nil {
-		r.Log.Error(err, "unable to get MinIO client")
-		return err
-	}
-
 	objName := mstorage.BuildObjectName(obj.Namespace, obj.Spec.Image)
-	if err = ms.Remove(ctx, mstorage.DefaultBucketName, objName); err != nil {
+	if err := ms.Remove(ctx, mstorage.DefaultBucketName, objName); err != nil {
 		r.Log.Error(err, "unable to remove object from MinIO storage", "snapshot", obj.Name)
 		return err
 	}

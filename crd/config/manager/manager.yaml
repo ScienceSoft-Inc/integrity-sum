@@ -70,6 +70,8 @@ spec:
         - /manager
         args:
         - --leader-elect
+        - "--minio-host=minio.minio.svc.cluster.local:9000"
+        imagePullPolicy: IfNotPresent
         image: controller:latest
         name: manager
         securityContext:

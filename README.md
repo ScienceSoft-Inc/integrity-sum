@@ -56,6 +56,8 @@ integrity-sum injects a `hasher-sidecar` to your pods as a sidecar container.
     - [Syslog messages format](#syslog-messages-format)
   - [Creating a snapshot of a docker image file system](#creating-a-snapshot-of-a-docker-image-file-system)
     - [Output file name for a snapshot](#output-file-name-for-a-snapshot)
+  - [Uploading a snapshot data to MinIO](#uploading-a-snapshot-data-to-minio)
+  - [Create \& install snapshot CRD and k8s controller for it](#create--install-snapshot-crd-and-k8s-controller-for-it)
   - [License](#license)
 
 ## Architecture
@@ -361,11 +363,68 @@ In this case, the snapshot will be created with default (SHA256) algorithm and t
 
 ### Output file name for a snapshot
 
-The default location: `./bin`
+The default location: `helm-charts/snapshot/files`
 
 The default file name: `snapshot.<ALG>`, for example: `snapshot.MD5`
 
-If you want to create a snapshot with a name that corresponds to an image, you should define the `IMAGE_EXPORT` variable for the `make snapshot` command. In this case, the output file will have the following format: `<BIN>/<IMAGE_EXPORT>.<ALG>`
+If you want to create a snapshot with a name that corresponds to an image, you should define the `IMAGE_EXPORT` variable for the `make snapshot` command. In this case, the output file will have the following format: `<default location>/<IMAGE_EXPORT>.<ALG>`.
+
+Example: `helm-charts/snapshot/files/integrity:latest.SHA256`.
+
+## Uploading a snapshot data to MinIO
+
+Reuired:
+
+* generated with previous steps snapshot data
+* installed CRD for snapshot (see the [next](#create--install-snapshot-crd-and-k8s-controller-for-it) section)
+* installed snapshot CRD controller (see the [next](#create--install-snapshot-crd-and-k8s-controller-for-it) section)
+* properly filled `helm-charts/snapshot/values.yaml` file with information about the snapshot data. It requires the following information:
+
+  ```yaml
+  - imageName: integrity
+    imageTag: latest
+    algorithm: sha256
+    filePath: files/integrity:latest.SHA256
+  ```
+
+  and may contain more then one snapshot entry.
+
+The snapshot data will be placed into the snapshot CRD and uploaded to the MinIO server with:
+
+```bash
+make helm-snapshot
+```
+
+At first, defined CRDs will be created on the cluster. They might be manged by `kubectl` command.
+
+```bash
+$ kubectl get snapshots
+NAME                               IMAGE              UPLOADED
+snapshot-integrity-latest-sha256   integrity:latest   true
+snapshot-sample                    integrity:latest   true
+```
+
+Then the snapshot controller will read the data from CRD and upload it to the MinIO server.
+
+With delete action on CRD the corresponding data from the MinIO server will be deleted as well.
+
+## Create & install snapshot CRD and k8s controller for it
+
+To create CRD related manifests and build the controller image for it use the following command:
+
+```make
+make crd-controller-build
+```
+
+To install the snapshot CRD and deploy it controller on the cluster use the following command:
+
+```make
+make crd-controller-deploy
+```
+
+Now we should be ready to manage snapshot CRDs on the cluster.
+
+You may find more specific targets for the CRD & it controller in the  appropriate Makefile in the `crd` directory.
 
 ## License
 

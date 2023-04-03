@@ -184,5 +184,5 @@ func (s *Storage) ListBuckets(ctx context.Context) ([]minio.BucketInfo, error) {
 // Returns: namespace/imageName/imageTag
 func BuildObjectName(namespace, image string) string {
 	imageInfo := strings.Split(image, ":")
-	return namespace + "/" + imageInfo[0] + "/" + imageInfo[1]
+	return namespace + "/" + imageInfo[0] + "/" + imageInfo[1] // TODO: + .<alg>
 }

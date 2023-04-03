@@ -2,8 +2,9 @@ namePrefix: snapshot
 finalizers:
 - controller.snapshot/finalizer
 
+# TODO: (USER) Add correct values for the following fields:
 snapshots:
 - imageName: integrity
   imageTag: latest
   algorithm: sha256
-  filePath: files/snapshot.SHA256
+  filePath: files/integrity:latest.SHA256

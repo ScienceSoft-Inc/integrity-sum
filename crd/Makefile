@@ -65,7 +65,7 @@ build: manifests generate fmt vet ## Build manager binary.
 	go build -o bin/manager main.go
 
 .PHONY: run
-run: manifests generate fmt vet ## Run a controller from your host.
+run: manifests generate fmt vet ## Run a controller from your host. Port forwarding is required.
 	go run ./main.go --minio-host="127.0.0.1:9000"
 
 # If you wish built the manager image targeting other platforms you can use the --platform flag.
