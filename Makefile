@@ -218,7 +218,7 @@ export-fs: ensure-export-dir clear-snapshot
 	echo exported to $(DOCKER_FS_DIR)
 
 .PHONY: snapshot
-snapshot:
+snapshot: ensure-snapshot-dir
 	@go run ./cmd/snapshot --root-fs="$(DOCKER_FS_DIR)" --dir '$(DIRS)' --algorithm $(ALG) --out $(SNAPSHOT_OUTPUT) && \
 	echo created $(SNAPSHOT_OUTPUT) && \
 	cat $(SNAPSHOT_OUTPUT)
@@ -226,6 +226,10 @@ snapshot:
 .PHONY: ensure-export-dir
 ensure-export-dir:
 	@mkdir -p $(DOCKER_FS_DIR)
+
+.PHONY: ensure-snapshot-dir
+ensure-snapshot-dir:
+	@mkdir -p $(SNAPSHOT_DIR)
 
 .PHONY: clear-snapshot
 clear-snapshot:
