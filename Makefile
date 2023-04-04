@@ -196,11 +196,10 @@ buildtools:
 # ..will create snapshot for the "app" and "bin" directories of the exported early
 # file system using the SHA512 algorithm.
 
-
 ALG ?= sha256
 ALG := $(shell echo $(ALG) | tr '[:upper:]' '[:lower:]')
 
-DOCKER_FS_DIR	:= $(BIN)/docker-fs
+DOCKER_FS_DIR := $(BIN)/docker-fs
 SNAPSHOT_DIR  := helm-charts/snapshot/files
 
 ifneq (,$(IMAGE_EXPORT))
