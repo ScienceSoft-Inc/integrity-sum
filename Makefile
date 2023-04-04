@@ -239,7 +239,7 @@ helm-snapshot:
 
 # Create and install snapshot CRD with controller
 
-CRD_MAKE := make -C crd
+CRD_MAKE := make -C snapshot-controller
 
 .PHONY: crd-controller-build
 crd-controller-build:
