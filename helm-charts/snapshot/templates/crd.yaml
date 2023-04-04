@@ -1,0 +1,25 @@
+{{- range $s := .Values.snapshots }}
+{{ $name := printf "%s-%s-%s-%s" $.Values.namePrefix $s.imageName $s.imageTag $s.algorithm }}
+{{ $image := printf "%s:%s" $s.imageName $s.imageTag }}
+{{ $data := $.Files.Get $s.filePath | b64enc }}
+---
+apiVersion: integrity.snapshot/v1
+kind: Snapshot
+metadata:
+  labels:
+    app.kubernetes.io/name: snapshot
+    app.kubernetes.io/instance: {{ $name }}
+    app.kubernetes.io/part-of: crd
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: crd
+  name: {{ $name }}
+  namespace: {{ $.Release.Namespace }}
+  finalizers:
+{{- range $.Values.finalizers}}
+  - {{ .  }}
+{{- end }}
+spec:
+  image: {{ $image }}
+  hashes: {{ $data }}
+  algorithm: {{ $s.algorithm }}
+{{- end }}

@@ -120,7 +120,7 @@ helm-syslog:
 
 .PHONY: kind-load-images
 kind-load-images:
-	@kind load docker-image $(FULL_IMAGE_NAME)
+	@kind load docker-image $(FULL_IMAGE_NAME) controller:latest
 
 .PHONY : tidy
 tidy: ## Cleans the Go module.
@@ -197,14 +197,16 @@ buildtools:
 # file system using the SHA512 algorithm.
 
 
+ALG ?= sha256
+ALG := $(shell echo $(ALG) | tr '[:upper:]' '[:lower:]')
+
 DOCKER_FS_DIR	:= $(BIN)/docker-fs
-ALG 			?= sha256
-ALG             := $(shell echo $(ALG) | tr '[:upper:]' '[:lower:]')
+SNAPSHOT_DIR  := helm-charts/snapshot/files
 
 ifneq (,$(IMAGE_EXPORT))
-  SNAPSHOT_OUTPUT := $(BIN)/$(IMAGE_EXPORT).$(ALG)
+  SNAPSHOT_OUTPUT := $(SNAPSHOT_DIR)/$(IMAGE_EXPORT).$(ALG)
 else
-  SNAPSHOT_OUTPUT := $(BIN)/snapshot.$(ALG)
+  SNAPSHOT_OUTPUT := $(SNAPSHOT_DIR)/snapshot.$(ALG)
 endif
 
 ifeq (export-fs,$(firstword $(MAKECMDGOALS)))
@@ -229,3 +231,22 @@ ensure-export-dir:
 .PHONY: clear-snapshot
 clear-snapshot:
 	@-rm -rf $(DOCKER_FS_DIR)/* $(SNAPSHOT_OUTPUT)
+
+RELEASE_NAME_SNAPSHOT   ?= snapshot-crd
+HELM_CHART_SNAPSHOT     := helm-charts/snapshot
+
+.PHONY: helm-snapshot
+helm-snapshot:
+	@helm upgrade -i $(RELEASE_NAME_SNAPSHOT) $(HELM_CHART_SNAPSHOT)
+
+# Create and install snapshot CRD with controller
+
+CRD_MAKE := make -C snapshot-controller
+
+.PHONY: crd-controller-build
+crd-controller-build:
+	$(CRD_MAKE) docker-build
+
+.PHONY: crd-controller-deploy
+crd-controller-deploy:
+	$(CRD_MAKE) install deploy
