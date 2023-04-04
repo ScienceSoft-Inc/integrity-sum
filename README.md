@@ -347,7 +347,7 @@ It could be done either manually or by using predefined Makefile targets:
   ```bash
   $ ALG=MD5 DIRS="app,bin" make snapshot
   ...
-  created bin/snapshot.MD5
+  created helm-charts/snapshot/files/snapshot.MD5
   f731846ea75e8bc9f76e7014b0518976  app/db/migrations/000001_init.down.sql
   96baa06f69fd446e1044cb4f7b28bc40  app/db/migrations/000001_init.up.sql
   353f69c28d8a547cbfa34c8b804501ba  app/integritySum
@@ -359,7 +359,7 @@ It is possible to combine the two commands into a single one:
 IMAGE_EXPORT=integrity:latest DIRS="app,bin" make export-fs snapshot
 ```
 
-In this case, the snapshot will be created with default (SHA256) algorithm and the snapshot will be stored as `bin/integrity:latest.SHA256`.
+In this case, the snapshot will be created with default (SHA256) algorithm and the snapshot will be stored as `helm-charts/snapshot/files/integrity:latest.SHA256`.
 
 ### Output file name for a snapshot
 
