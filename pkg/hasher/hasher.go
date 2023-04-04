@@ -11,6 +11,7 @@ import (
 	"hash"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 )
@@ -31,12 +32,12 @@ var algs = make(map[string]InitFunc)
 
 func init() {
 	// default algs
-	RegisterAlg("MD5", md5.New)
-	RegisterAlg("SHA1", sha1.New)
-	RegisterAlg("SHA224", sha256.New224)
-	RegisterAlg("SHA256", sha256.New)
-	RegisterAlg("SHA384", sha512.New384)
-	RegisterAlg("SHA512", sha512.New)
+	RegisterAlg("md5", md5.New)
+	RegisterAlg("sha1", sha1.New)
+	RegisterAlg("sha224", sha256.New224)
+	RegisterAlg("sha256", sha256.New)
+	RegisterAlg("sha384", sha512.New384)
+	RegisterAlg("sha512", sha512.New)
 }
 
 // HashFile calculates hash for file
@@ -65,23 +66,26 @@ func (fh *Hasher) HashData(r *bytes.Reader) (string, error) {
 	return hex.EncodeToString(fh.h.Sum(nil)), nil
 }
 
-// Registers init func for @name algorithm
-func RegisterAlg(name string, f InitFunc) bool {
-	algs[name] = f
-	fmt.Printf("algorithm %q has been registered\n", name)
+// Registers init func for @algName algorithm
+func RegisterAlg(algName string, f InitFunc) bool {
+	algName = strings.ToLower(algName)
+	algs[algName] = f
+	fmt.Printf("algorithm %q has been registered\n", algName)
 	return true
 }
 
 // newHasherInstance takes a hashing algorithm name as input and returns
 // registered (or default, if name is not recognized) hasher for this algorithm.
 func newHasherInstance(algName string) hash.Hash {
+	algName = strings.ToLower(algName)
 	initFunc, ok := algs[algName]
 	if !ok {
 		// returns default, sha256
+		logrus.Debugf("algorithm %q is not registered, sha256 will be used", algName)
 		return sha256.New()
 	}
+	logrus.Debugf("algorithm %q has been selected", algName)
 	return initFunc()
-	// TODO: log actual name of selected alg. Or return true/false signal
 }
 
 // Returns new FileHasher instance

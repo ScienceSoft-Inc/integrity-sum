@@ -76,7 +76,7 @@ generate:
 ## Runs the test suite with mocks enabled.
 .PHONY: test
 test: generate test-bee2 tminio
-	@$(GOTEST) -timeout 5s ./internal/core/services \
+	@$(GOTEST) -timeout 5s \
 	 	./pkg/hasher \
 		./internal/walker \
 		./internal/worker
@@ -198,7 +198,9 @@ buildtools:
 
 
 DOCKER_FS_DIR	:= $(BIN)/docker-fs
-ALG 			?= SHA256
+ALG 			?= sha256
+ALG             := $(shell echo $(ALG) | tr '[:upper:]' '[:lower:]')
+
 ifneq (,$(IMAGE_EXPORT))
   SNAPSHOT_OUTPUT := $(BIN)/$(IMAGE_EXPORT).$(ALG)
 else

@@ -9,7 +9,7 @@ import (
 )
 
 func init() {
-	hasher.RegisterAlg("BEE2", NewDefault)
+	hasher.RegisterAlg("bee2", NewDefault)
 }
 
 type bee2 struct {
