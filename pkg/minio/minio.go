@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -184,5 +185,5 @@ func (s *Storage) ListBuckets(ctx context.Context) ([]minio.BucketInfo, error) {
 // Returns: namespace/imageName/imageTag.alg
 func BuildObjectName(namespace, image, alg string) string {
 	imageInfo := strings.Split(image, ":")
-	return namespace + "/" + imageInfo[0] + "/" + imageInfo[1] + "." + strings.ToLower(alg)
+	return filepath.Join(namespace, imageInfo[0], imageInfo[1]) + "." + strings.ToLower(alg)
 }

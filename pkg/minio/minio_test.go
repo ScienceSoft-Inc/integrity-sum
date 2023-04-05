@@ -229,3 +229,42 @@ func TestSaveLoadRemoveObject(t *testing.T) {
 	err = Instance().Remove(ctx, DefaultBucketName, testObj)
 	assert.NoError(t, err, "cannot remove data: %v", err)
 }
+
+func TestBuildObjectName(t *testing.T) {
+	type args struct {
+		namespace string
+		image     string
+		alg       string
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "verify MinIO objectName, mocked data",
+			args: args{
+				namespace: "namespace",
+				image:     "imageName:imageTag",
+				alg:       "alg",
+			},
+			want: "namespace/imageName/imageTag.alg",
+		},
+		{
+			name: "verify MinIO objectName, real sample",
+			args: args{
+				namespace: "default",
+				image:     "integrity:latest",
+				alg:       "sha256",
+			},
+			want: "default/integrity/latest.sha256",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := BuildObjectName(tt.args.namespace, tt.args.image, tt.args.alg); got != tt.want {
+				t.Errorf("BuildObjectName() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
