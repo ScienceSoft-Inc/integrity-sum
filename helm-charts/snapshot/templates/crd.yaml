@@ -1,7 +1,11 @@
-{{- range $s := .Values.snapshots }}
-{{ $name := printf "%s-%s-%s-%s" $.Values.namePrefix $s.imageName $s.imageTag $s.algorithm }}
-{{ $image := printf "%s:%s" $s.imageName $s.imageTag }}
-{{ $data := $.Files.Get $s.filePath | b64enc }}
+{{- range $path, $_ :=  (.Files.Glob "files/*:*.*") }}
+{{- $data := $.Files.Get $path | b64enc }}
+{{- $fileName := base $path }}
+{{- $fileExt := ext $fileName }}
+{{- $alg := $fileExt | trimPrefix "." }}
+{{- $image := trimSuffix $fileExt $fileName }}
+{{- $imageParts := splitn ":" 2 $image }}
+{{- $name := printf "%s-%s-%s-%s" $.Values.namePrefix $imageParts._0 $imageParts._1 $alg}}
 ---
 apiVersion: integrity.snapshot/v1
 kind: Snapshot
@@ -19,7 +23,7 @@ metadata:
   - {{ .  }}
 {{- end }}
 spec:
-  image: {{ $image }}
+  image: {{ $image | quote}}
   hashes: {{ $data }}
-  algorithm: {{ $s.algorithm }}
+  algorithm: {{ $alg }}
 {{- end }}

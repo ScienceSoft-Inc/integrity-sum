@@ -213,7 +213,7 @@ ifeq (export-fs,$(firstword $(MAKECMDGOALS)))
 endif
 
 .PHONY: export-fs
-export-fs: ensure-export-dir clear-snapshot
+export-fs: ensure-export-dir clear-snapshots
 	@docker export $(CID) | tar -xC $(DOCKER_FS_DIR) && docker rm $(CID) > /dev/null 2>&1 && \
 	echo exported to $(DOCKER_FS_DIR)
 
@@ -231,9 +231,9 @@ ensure-export-dir:
 ensure-snapshot-dir:
 	@mkdir -p $(SNAPSHOT_DIR)
 
-.PHONY: clear-snapshot
-clear-snapshot:
-	@-rm -rf $(DOCKER_FS_DIR)/* $(SNAPSHOT_OUTPUT)
+.PHONY: clear-snapshots
+clear-snapshots:
+	@-rm -rf $(DOCKER_FS_DIR)/* $(SNAPSHOT_DIR)/*
 
 RELEASE_NAME_SNAPSHOT   ?= snapshot-crd
 HELM_CHART_SNAPSHOT     := helm-charts/snapshot
