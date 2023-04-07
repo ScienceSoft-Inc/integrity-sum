@@ -92,6 +92,7 @@ func NewStorage(log *logrus.Logger) (*Storage, error) {
 			client: client,
 			log:    log,
 		}
+		// client.TraceOn(nil)
 	})
 	return instance, err
 }
@@ -119,11 +120,13 @@ func (s *Storage) Save(ctx context.Context, bucketName, objectName string, data 
 
 // Load loads and returns data from the @bucketName for the @objectName
 func (s *Storage) Load(ctx context.Context, bucketName, objectName string) ([]byte, error) {
+	opts := minio.GetObjectOptions{}
+	opts.Set("Cache-Control", "no-cache")
 	r, err := s.client.GetObject(
 		ctx,
 		bucketName,
 		objectName,
-		minio.GetObjectOptions{},
+		opts,
 	)
 	if err != nil {
 		return nil, fmt.Errorf(MsgFailedLoad, err)
@@ -137,7 +140,7 @@ func (s *Storage) Load(ctx context.Context, bucketName, objectName string) ([]by
 	s.log.WithFields(logrus.Fields{
 		"objectName": info.Key,
 		"size":       info.Size,
-	}).Debug("loaded successfully")
+	}).Info("loaded successfully")
 	return io.ReadAll(r)
 }
 

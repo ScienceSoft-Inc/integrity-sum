@@ -228,6 +228,11 @@ func TestSaveLoadRemoveObject(t *testing.T) {
 
 	err = Instance().Remove(ctx, DefaultBucketName, testObj)
 	assert.NoError(t, err, "cannot remove data: %v", err)
+
+	data, err = Instance().Load(ctx, DefaultBucketName, testObj)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "The specified key does not exist")
+	assert.Nil(t, data, "verify removed object: %v", data)
 }
 
 func TestBuildObjectName(t *testing.T) {

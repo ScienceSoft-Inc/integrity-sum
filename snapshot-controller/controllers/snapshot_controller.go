@@ -75,7 +75,7 @@ func (r *SnapshotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return nil
 	}
 
-	ms, err := r.minIOStorage(ctx, r.Log)
+	ms, err := r.minIOStorage(ctx)
 	if err != nil {
 		r.Log.Error(err, "unable to get MinIO client")
 		return ctrl.Result{}, err
@@ -113,7 +113,11 @@ func (r *SnapshotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 
 		snapshot.Status.ControlHash, isUpdated = controlHash, true
-		_ = updateStatus(ctx, &snapshot, isUpdated)
+		err = updateStatus(ctx, &snapshot, isUpdated)
+		if err != nil {
+			r.Log.Error(err, "unable to update snapshot status", "snapshot", snapshot.Name)
+			return ctrl.Result{}, err
+		}
 		r.Log.V(1).Info("all snapshots uploaded")
 	}
 
@@ -183,10 +187,7 @@ var (
 )
 
 // ..initializes the MinIO storage and returns it instance
-func (r *SnapshotReconciler) minIOStorage(
-	ctx context.Context,
-	l logr.Logger,
-) (*mstorage.Storage, error) {
+func (r *SnapshotReconciler) minIOStorage(ctx context.Context) (*mstorage.Storage, error) {
 	minioOnce.Do(func() {
 		// find the secret "minio" in the "minio" namespace
 		secret := &corev1.Secret{}
