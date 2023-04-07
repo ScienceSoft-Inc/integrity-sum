@@ -20,8 +20,10 @@ import (
 	"context"
 	integrityv1 "integrity/snapshot/api/v1"
 	"os/exec"
+	"strconv"
 	"testing"
 	"time"
+
 	//+kubebuilder:scaffold:imports
 
 	"github.com/go-logr/logr"
@@ -59,6 +61,8 @@ func TestAPIs(t *testing.T) {
 
 	RunSpecs(t, "Controller Suite")
 }
+
+var portForwardProcessPid int
 
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
@@ -99,6 +103,13 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	By("port-forwarding MinIO service")
+	// kubectl port-forward svc/minio -n minio 9000:9000 9001:9001
+	cmd := exec.Command("kubectl", "port-forward", "svc/minio", "-n", "minio", "9000:9000", "9001:9001")
+	Expect(cmd.Start()).To(Succeed())
+	println("port-forward process PID:", cmd.Process.Pid)
+	portForwardProcessPid = cmd.Process.Pid
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	go func() {
 		defer GinkgoRecover()
@@ -112,6 +123,12 @@ var _ = AfterSuite(func() {
 	By("tearing down the test environment")
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
+
+	if portForwardProcessPid != 0 {
+		By("stop port-forwarding MinIO service")
+		cmd := exec.Command("kill", "-9", strconv.Itoa(portForwardProcessPid))
+		Expect(cmd.Run()).To(Succeed())
+	}
 })
 
 var _ = Describe("SnapshotController", func() {
@@ -124,6 +141,7 @@ var _ = Describe("SnapshotController", func() {
 		objectKey types.NamespacedName
 		objName   string
 	)
+	// TODO: remove
 	_ = fetched
 	_ = objectKey
 	_ = objName
@@ -162,6 +180,7 @@ var _ = Describe("SnapshotController", func() {
 		}
 		objName = mstorage.BuildObjectName(toCreate.Namespace, toCreate.Spec.Image, toCreate.Spec.Algorithm)
 		ctx = context.Background()
+
 	})
 
 	It("testing CRD & Minio", func() {
