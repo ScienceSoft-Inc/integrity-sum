@@ -47,6 +47,8 @@ type SnapshotReconciler struct {
 
 const finalizerName = "controller.snapshot/finalizer"
 
+var debugCounter int
+
 //+kubebuilder:rbac:groups=integrity.snapshot,resources=snapshots,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=integrity.snapshot,resources=snapshots/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=integrity.snapshot,resources=snapshots/finalizers,verbs=update
@@ -82,13 +84,15 @@ func (r *SnapshotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	var snapshot integrityv1.Snapshot
-	if err := r.Get(ctx, req.NamespacedName, &snapshot); err != nil {
+	if err = r.Get(ctx, req.NamespacedName, &snapshot); err != nil {
 		if !errors.IsNotFound(err) {
 			r.Log.Error(err, "unable to fetch snapshot")
 		}
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-	r.Log.V(1).Info("snapshot found", "image", snapshot.Spec.Image,
+	r.Log.V(1).Info("snapshot found",
+		"snapshot", snapshot.Name,
+		"image", snapshot.Spec.Image,
 		"IsUploaded", snapshot.Status.IsUploaded)
 
 	// check that deletion process is started
@@ -102,24 +106,43 @@ func (r *SnapshotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, nil
 	}
 
+	r.Log.V(1).Info("debug", "mark", 1, "debugCounter", debugCounter)
+	debugCounter++
+
 	// upload if needed
 	controlHash := md5hash(snapshot.Spec.Base64Hashes)
 	if controlHash != snapshot.Status.ControlHash || !snapshot.Status.IsUploaded {
-		var isUpdated bool
-		if err := r.uploadSnapshot(ctx, ms, snapshot, req); err != nil {
-			r.Log.Error(err, "unable to upload snapshot")
-			_ = updateStatus(ctx, &snapshot, isUpdated)
-			return ctrl.Result{}, nil
-		}
 
-		snapshot.Status.ControlHash, isUpdated = controlHash, true
-		err = updateStatus(ctx, &snapshot, isUpdated)
+		r.Log.V(1).Info("debug", "mark", "2 (needs to upload)", "debugCounter", debugCounter)
+		debugCounter++
+		r.Log.V(1).Info("debug uploaded", "condotion_1", controlHash != snapshot.Status.ControlHash)
+		r.Log.V(1).Info("debug uploaded", "condotion_2", !snapshot.Status.IsUploaded)
+
+		// var isUpdated bool
+		r.Log.V(1).Info("updating the status of the object")
+		snapshot.Status.ControlHash, snapshot.Status.IsUploaded = controlHash, true
+		err = updateStatus(ctx, &snapshot, snapshot.Status.IsUploaded)
 		if err != nil {
 			r.Log.Error(err, "unable to update snapshot status", "snapshot", snapshot.Name)
 			return ctrl.Result{}, err
 		}
-		r.Log.V(1).Info("all snapshots uploaded")
+		r.Log.V(1).Info("uploading the object")
+		if err := r.uploadSnapshot(ctx, ms, snapshot, req); err != nil {
+			r.Log.Error(err, "unable to upload snapshot")
+			snapshot.Status.IsUploaded = false
+			r.Log.V(1).Info("not uploaded, changing status to false")
+			_ = updateStatus(ctx, &snapshot, snapshot.Status.IsUploaded)
+			return ctrl.Result{}, nil
+		}
+
+		r.Log.V(1).Info("debug", "mark", "3 (uploaded)", "debugCounter", debugCounter)
+		debugCounter++
+
+		r.Log.V(1).Info("snapshot uploaded", "snapshot", snapshot.Name)
 	}
+
+	r.Log.V(1).Info("debug", "mark", "4 (return)", "debugCounter", debugCounter)
+	debugCounter++
 
 	return ctrl.Result{}, nil
 }

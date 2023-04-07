@@ -60,6 +60,7 @@ vet: ## Run go vet against code.
 
 .PHONY: test
 test: envtest ginkgo
+	go clean -testcache
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" $(LOCALBIN)/ginkgo -vv ./...
 
 ##@ Build

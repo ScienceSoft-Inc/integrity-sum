@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	integrityv1 "integrity/snapshot/api/v1"
 	"os/exec"
 	"strconv"
@@ -105,10 +106,11 @@ var _ = BeforeSuite(func() {
 
 	By("port-forwarding MinIO service")
 	// kubectl port-forward svc/minio -n minio 9000:9000 9001:9001
-	cmd := exec.Command("kubectl", "port-forward", "svc/minio", "-n", "minio", "9000:9000", "9001:9001")
+	cmd := exec.Command("kubectl", "port-forward", "svc/minio", "-n", "minio", "9000:9000")
 	Expect(cmd.Start()).To(Succeed())
 	println("port-forward process PID:", cmd.Process.Pid)
 	portForwardProcessPid = cmd.Process.Pid
+	viper.Set("minio-host", "127.0.0.1:9000")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	go func() {
@@ -148,13 +150,14 @@ var _ = Describe("SnapshotController", func() {
 	_ = r
 	_ = req
 
-	viper.Set("minio-host", "127.0.0.1:9000") // port forwarding is required for MinIO
-
 	BeforeEach(func() {
 		toCreate = &integrityv1.Snapshot{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "snapshot-test",
 				Namespace: "default",
+				Finalizers: []string{
+					finalizerName,
+				},
 			},
 			Spec: integrityv1.SnapshotSpec{
 				Image:        "imageName:imageTag",
@@ -180,26 +183,37 @@ var _ = Describe("SnapshotController", func() {
 		}
 		objName = mstorage.BuildObjectName(toCreate.Namespace, toCreate.Spec.Image, toCreate.Spec.Algorithm)
 		ctx = context.Background()
-
 	})
 
-	It("testing CRD & Minio", func() {
-
-		By("removing previously created object")
-		cmd := exec.Command("kubectl", "delete", "snapshot", toCreate.Name)
-		_ = cmd.Run()
+	It("testing CRD, controller & interaction w/ Minio", func() {
+		// TODO: remove it
+		// By("removing previously created object")
+		// _ = exec.Command("kubectl", "delete", "snapshot", toCreate.Name).Run()
 
 		By("create test snapshot CRD")
 		Expect(k8sClient.Create(ctx, toCreate)).
 			Should(Succeed())
-		r.Reconcile(ctx, req)
+		// r.Reconcile(ctx, req)
+		// r.Reconcile(ctx, req)
+
+		// let's wait a little while the controller Reconcile the new object
+		time.Sleep(3200 * time.Millisecond)
 
 		By("verify test snapshot CRD on the cluster")
 		Eventually(func() bool {
 			err := k8sClient.Get(ctx, objectKey, fetched)
 			return err == nil
 		}).Should(BeTrue())
+
+		fmt.Printf("-- debug fetched.Status: %+v\n", fetched.Status)
+		// println("-- debug fetched:")
+		// v := reflect.ValueOf(*fetched)
+		// for i := 0; i < v.NumField(); i++ {
+		// 	fmt.Printf("Field %d. %s: %+v\n", i, v.Field(i).Type().Name(), v.Field(i))
+		// }
+
 		Expect(toCreate.Name).To(Equal(fetched.Name))
+		// Expect(fetched.Status.IsUploaded).To(BeTrue()) // TODO: why the status is empty?
 
 		_, err := r.minIOStorage(ctx)
 		Expect(err).NotTo(HaveOccurred())
@@ -212,26 +226,19 @@ var _ = Describe("SnapshotController", func() {
 		Expect(string(bs)).To(Equal(toCreate.Spec.Base64Hashes))
 
 		By("delete test snapshot CRD")
+		Expect(k8sClient.Delete(ctx, toCreate)).To(Succeed())
+		time.Sleep(200 * time.Millisecond)
+
+		By("try to get the deleted before CRD")
 		Eventually(func() bool {
-			err := k8sClient.Delete(ctx, toCreate)
+			err := k8sClient.Get(ctx, objectKey, fetched)
 			return err == nil
-		}).Should(BeTrue())
-		r.Reconcile(ctx, req)
+		}).Should(BeFalse())
 
-		// TODO: 1. undeploy controller and try to run just pure test
-		// TODO: 2. use local reconciler to test the controller
-
-		// By("try to get the deleted before CRD")
-		// Eventually(func() bool {
-		// 	err := k8sClient.Get(ctx, objectKey, fetched)
-		// 	return err == nil
-		// }).Should(BeFalse())
-
-		// By("try to load the MinIO object (should be deleted)")
-		// Eventually(func() bool {
-		// 	_, err := mstorage.Instance().Load(ctx, mstorage.DefaultBucketName, objName)
-		// 	return err == nil
-		// }, 2*time.Second, 400*time.Millisecond).Should(BeFalse())
+		By("try to load the MinIO object (should be deleted)")
+		Eventually(func() bool {
+			_, err := mstorage.Instance().Load(ctx, mstorage.DefaultBucketName, objName)
+			return err == nil
+		}, 2*time.Second, 400*time.Millisecond).Should(BeFalse())
 	})
-
 })
