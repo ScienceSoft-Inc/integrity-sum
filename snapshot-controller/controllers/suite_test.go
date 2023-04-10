@@ -138,17 +138,10 @@ var _ = Describe("SnapshotController", func() {
 		toCreate  *integrityv1.Snapshot
 		ctx       context.Context
 		r         *SnapshotReconciler
-		req       ctrl.Request
 		fetched   *integrityv1.Snapshot
 		objectKey types.NamespacedName
 		objName   string
 	)
-	// TODO: remove
-	_ = fetched
-	_ = objectKey
-	_ = objName
-	_ = r
-	_ = req
 
 	BeforeEach(func() {
 		toCreate = &integrityv1.Snapshot{
@@ -175,29 +168,24 @@ var _ = Describe("SnapshotController", func() {
 			Client: k8sClient,
 			Log:    k8sLogger,
 		}
-		req = ctrl.Request{
-			NamespacedName: types.NamespacedName{
-				Namespace: toCreate.Namespace,
-				Name:      toCreate.Name,
-			},
-		}
-		objName = mstorage.BuildObjectName(toCreate.Namespace, toCreate.Spec.Image, toCreate.Spec.Algorithm)
+
+		objName = mstorage.BuildObjectName(
+			toCreate.Namespace,
+			toCreate.Spec.Image,
+			toCreate.Spec.Algorithm,
+		)
 		ctx = context.Background()
 	})
 
-	It("testing CRD, controller & interaction w/ Minio", func() {
-		// TODO: remove it
-		// By("removing previously created object")
-		// _ = exec.Command("kubectl", "delete", "snapshot", toCreate.Name).Run()
-
-		By("create test snapshot CRD")
-		Expect(k8sClient.Create(ctx, toCreate)).
-			Should(Succeed())
-		// r.Reconcile(ctx, req)
-		// r.Reconcile(ctx, req)
-
+	It("testing snapshot CR, controller & interaction w/ Minio", func() {
+		By("ensure the object is not created")
+		_ = k8sClient.Delete(ctx, toCreate)
 		// let's wait a little while the controller Reconcile the new object
-		time.Sleep(3200 * time.Millisecond)
+		time.Sleep(400 * time.Millisecond)
+
+		By("create test snapshot CR")
+		Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+		time.Sleep(200 * time.Millisecond)
 
 		By("verify test snapshot CRD on the cluster")
 		Eventually(func() bool {
@@ -206,14 +194,9 @@ var _ = Describe("SnapshotController", func() {
 		}).Should(BeTrue())
 
 		fmt.Printf("-- debug fetched.Status: %+v\n", fetched.Status)
-		// println("-- debug fetched:")
-		// v := reflect.ValueOf(*fetched)
-		// for i := 0; i < v.NumField(); i++ {
-		// 	fmt.Printf("Field %d. %s: %+v\n", i, v.Field(i).Type().Name(), v.Field(i))
-		// }
 
 		Expect(toCreate.Name).To(Equal(fetched.Name))
-		// Expect(fetched.Status.IsUploaded).To(BeTrue()) // TODO: why the status is empty?
+		Expect(fetched.Status.IsUploaded).To(BeTrue())
 
 		_, err := r.minIOStorage(ctx)
 		Expect(err).NotTo(HaveOccurred())
@@ -235,10 +218,7 @@ var _ = Describe("SnapshotController", func() {
 			return err == nil
 		}).Should(BeFalse())
 
-		By("try to load the MinIO object (should be deleted)")
-		Eventually(func() bool {
-			_, err := mstorage.Instance().Load(ctx, mstorage.DefaultBucketName, objName)
-			return err == nil
-		}, 2*time.Second, 400*time.Millisecond).Should(BeFalse())
+		_, err = mstorage.Instance().Load(ctx, mstorage.DefaultBucketName, objName)
+		Expect(err).ShouldNot(Succeed())
 	})
 })

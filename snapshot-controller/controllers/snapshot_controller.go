@@ -47,8 +47,6 @@ type SnapshotReconciler struct {
 
 const finalizerName = "controller.snapshot/finalizer"
 
-var debugCounter int
-
 //+kubebuilder:rbac:groups=integrity.snapshot,resources=snapshots,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=integrity.snapshot,resources=snapshots/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=integrity.snapshot,resources=snapshots/finalizers,verbs=update
@@ -64,16 +62,13 @@ var debugCounter int
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *SnapshotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	updateStatus := func(ctx context.Context, obj *integrityv1.Snapshot, uploaded bool) error {
-		if obj.Status.IsUploaded != uploaded {
-			obj.Status.IsUploaded = uploaded
-			if err := r.Status().Update(ctx, obj); err != nil {
-				r.Log.Error(err, "unable to update snapshot status", "snapshot", obj.Name)
-				return err
-			}
-			r.Log.V(1).Info("snapshot status has been updated", "snapshot", obj.Name,
-				"IsUploaded", obj.Status.IsUploaded)
+	updateStatus := func(ctx context.Context, obj *integrityv1.Snapshot) error {
+		if err := r.Status().Update(ctx, obj); err != nil {
+			r.Log.Error(err, "unable to update snapshot status", "snapshot", obj.Name)
+			return err
 		}
+		r.Log.V(1).Info("snapshot status has been updated", "snapshot", obj.Name,
+			"IsUploaded", obj.Status.IsUploaded)
 		return nil
 	}
 
@@ -106,43 +101,23 @@ func (r *SnapshotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, nil
 	}
 
-	r.Log.V(1).Info("debug", "mark", 1, "debugCounter", debugCounter)
-	debugCounter++
-
 	// upload if needed
 	controlHash := md5hash(snapshot.Spec.Base64Hashes)
 	if controlHash != snapshot.Status.ControlHash || !snapshot.Status.IsUploaded {
-
-		r.Log.V(1).Info("debug", "mark", "2 (needs to upload)", "debugCounter", debugCounter)
-		debugCounter++
-		r.Log.V(1).Info("debug uploaded", "condotion_1", controlHash != snapshot.Status.ControlHash)
-		r.Log.V(1).Info("debug uploaded", "condotion_2", !snapshot.Status.IsUploaded)
-
-		// var isUpdated bool
-		r.Log.V(1).Info("updating the status of the object")
-		snapshot.Status.ControlHash, snapshot.Status.IsUploaded = controlHash, true
-		err = updateStatus(ctx, &snapshot, snapshot.Status.IsUploaded)
-		if err != nil {
-			r.Log.Error(err, "unable to update snapshot status", "snapshot", snapshot.Name)
-			return ctrl.Result{}, err
-		}
-		r.Log.V(1).Info("uploading the object")
 		if err := r.uploadSnapshot(ctx, ms, snapshot, req); err != nil {
 			r.Log.Error(err, "unable to upload snapshot")
 			snapshot.Status.IsUploaded = false
 			r.Log.V(1).Info("not uploaded, changing status to false")
-			_ = updateStatus(ctx, &snapshot, snapshot.Status.IsUploaded)
+			_ = updateStatus(ctx, &snapshot)
 			return ctrl.Result{}, nil
 		}
-
-		r.Log.V(1).Info("debug", "mark", "3 (uploaded)", "debugCounter", debugCounter)
-		debugCounter++
-
-		r.Log.V(1).Info("snapshot uploaded", "snapshot", snapshot.Name)
+		snapshot.Status.ControlHash, snapshot.Status.IsUploaded = controlHash, true
+		err = updateStatus(ctx, &snapshot)
+		if err != nil {
+			r.Log.Error(err, "unable to update snapshot status", "snapshot", snapshot.Name)
+			return ctrl.Result{}, err
+		}
 	}
-
-	r.Log.V(1).Info("debug", "mark", "4 (return)", "debugCounter", debugCounter)
-	debugCounter++
 
 	return ctrl.Result{}, nil
 }
@@ -178,13 +153,10 @@ func (r *SnapshotReconciler) uploadSnapshot(
 	defer cancel()
 
 	objectName := mstorage.BuildObjectName(req.NamespacedName.Namespace, o.Spec.Image, o.Spec.Algorithm)
-	if err := ms.Save(ctx, mstorage.DefaultBucketName,
-		objectName,
-		[]byte(o.Spec.Base64Hashes),
-	); err != nil {
+	if err := ms.Save(ctx, mstorage.DefaultBucketName, objectName, []byte(o.Spec.Base64Hashes)); err != nil {
 		return err
 	}
-	r.Log.Info("snapshot saved", "objectName", objectName, "IsUploaded", o.Status.IsUploaded)
+	r.Log.Info("snapshot uploaded", "objectName", objectName, "IsUploaded", o.Status.IsUploaded)
 	return nil
 }
 
