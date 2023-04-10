@@ -25,8 +25,6 @@ import (
 	"testing"
 	"time"
 
-	//+kubebuilder:scaffold:imports
-
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -41,9 +39,9 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	//+kubebuilder:scaffold:imports
 
 	mstorage "github.com/ScienceSoft-Inc/integrity-sum/pkg/minio"
-	// mstorage "github.com/ScienceSoft-Inc/integrity-sum/pkg/minio"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
@@ -71,9 +69,6 @@ var _ = BeforeSuite(func() {
 	By("bootstrapping test environment")
 	useExistingCluster := true
 	testEnv = &envtest.Environment{
-		// CRDDirectoryPaths:     []string{filepath.Join("..", "config", "crd", "bases")},
-		// ErrorIfCRDPathMissing: true,
-		// AttachControlPlaneOutput: true,
 		UseExistingCluster: &useExistingCluster,
 	}
 
@@ -104,8 +99,7 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
-	By("port-forwarding MinIO service")
-	// kubectl port-forward svc/minio -n minio 9000:9000 9001:9001
+	By("port-forwarding for the MinIO service")
 	cmd := exec.Command("kubectl", "port-forward", "svc/minio", "-n", "minio", "9000:9000")
 	Expect(cmd.Start()).To(Succeed())
 	println("port-forward process PID:", cmd.Process.Pid)

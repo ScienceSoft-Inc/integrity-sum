@@ -140,7 +140,7 @@ func (s *Storage) Load(ctx context.Context, bucketName, objectName string) ([]by
 	s.log.WithFields(logrus.Fields{
 		"objectName": info.Key,
 		"size":       info.Size,
-	}).Info("loaded successfully")
+	}).Debug("loaded successfully")
 	return io.ReadAll(r)
 }
 

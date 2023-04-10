@@ -60,6 +60,7 @@ integrity-sum injects a `hasher-sidecar` to your pods as a sidecar container.
     * [Output file name for a snapshot](#output-file-name-for-a-snapshot)
   * [Uploading a snapshot data to MinIO](#uploading-a-snapshot-data-to-minio)
   * [Create \& install snapshot CRD and k8s controller for it](#create--install-snapshot-crd-and-k8s-controller-for-it)
+    * [Integration testing for the snapshot CRD controller](#integration-testing-for-the-snapshot-crd-controller)
   * [License](#license)
 
 ## Architecture
@@ -488,6 +489,25 @@ make crd-controller-deploy
 Now we should be ready to manage snapshot CRDs on the cluster.
 
 You may find more specific targets for the CRD & it controller in the  appropriate Makefile in the `snapshot-controller` directory.
+
+### Integration testing for the snapshot CRD controller
+
+Requirements:
+
+* configured access to k8s cluster with installed and run MinIO service which will be used to store the snapshot data from the test CRD sample.
+* placement of the MinIO service is hardcoded now to the `minio` namespace and `minio` service values. These values are used to find the MinIO credentials in the cluster and to perform port-forwarding to access the MinIO service and verify the data stored in it during the test.
+* the snapshot controller should not be deployed on the cluster (we will test our code instead).
+
+To perform integration test you may use the following Makefile target:
+
+```bash
+make crd-controller-test
+```
+
+It will update manifest for the snapshot CRD, install it to the cluster and then run the test. During the first run the `ginkgo` tool will be installed. This tool is used to run the integration test instead of default `go test`.
+
+Notice:
+Pay attention that this integration test performs on the current/real k8s cluster. The following command will show an information about the current cluster: `kubectl config current-context`.
 
 ## License
 

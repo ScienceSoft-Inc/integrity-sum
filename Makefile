@@ -253,3 +253,7 @@ crd-controller-build:
 .PHONY: crd-controller-deploy
 crd-controller-deploy:
 	$(CRD_MAKE) install deploy
+
+.PHONY: crd-controller-test
+crd-controller-test:
+	$(CRD_MAKE) manifests generate install test
