@@ -272,7 +272,7 @@ $(ENVTEST): $(BIN)
 .PHONY: ginkgo
 ginkgo: $(GINKGO) ## Download ginkgo locally if necessary.
 $(GINKGO): $(BIN)
-	test -s $(BIN)/ginkgo || GOBIN=$(CUR_DIR)/$(BIN) go install github.com/onsi/ginkgo/v2/ginkgo@latest
+	test -s $(BIN)/ginkgo || GOBIN=$(CUR_DIR)/$(BIN) go install github.com/onsi/ginkgo/v2/ginkgo@2.9.2
 
 .PHONY: minio-install
 minio-install:

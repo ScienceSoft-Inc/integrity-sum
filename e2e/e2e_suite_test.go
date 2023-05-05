@@ -89,7 +89,7 @@ var _ = Describe("e2e test", func() {
 		Expect(err).ToNot(HaveOccurred(), "failed to get logs")
 		msg := GetLastMsg(out)
 		fmt.Println(msg)
-		expectRegexp := "\\d*-\\d*-\\d*T\\d*:\\d*:\\d*\\+\\d*:\\d*\\sapp-nginx-integrity\\.default\\sintegrity-monitor\\[\\d*\\]:\\stime=\\w*\\s\\d*\\s\\d*:\\d*:\\d*\\sevent-type=\\d*\\sservice=nginx\\spod=app-nginx-integrity-\\w*-\\w*\\simage=nginx:\\d*.\\d*.\\d*\\snamespace=default\\scluster=local\\smessage=Restart pod app-nginx-integrity-\\w*-\\w*\\sfile=usr\\/bin\\/newfile\\sreason=new\\sfile\\sfound"
+		expectRegexp := "\\d*-\\d*-\\d*T\\d*:\\d*:\\d*\\+\\d*:\\d*\\sapp-nginx-integrity\\.default\\sintegrity-monitor\\[\\d*\\]:\\stime=\\w*\\s*\\d*\\s\\d*:\\d*:\\d*\\sevent-type=\\d*\\sservice=nginx\\spod=app-nginx-integrity-\\w*-\\w*\\simage=nginx:\\d*.\\d*.\\d*\\snamespace=default\\scluster=local\\smessage=Restart pod app-nginx-integrity-\\w*-\\w*\\sfile=usr\\/bin\\/newfile\\sreason=new\\sfile\\sfound"
 		Expect(msg).To(MatchRegexp(expectRegexp))
 
 		By("file deleted")
