@@ -206,17 +206,17 @@ ifeq (export-fs,$(firstword $(MAKECMDGOALS)))
   CID:=$(shell docker create $(IMAGE_EXPORT))
 endif
 
-.PHONY: print-var-image-name
-print-var-image-name:
-	@echo $(IMAGE_NAME)
+#.PHONY: print-var-image-name
+#print-var-image-name:
+#	@echo $(IMAGE_NAME)
 
-.PHONY: print-var-app-name
-print-var-app-name:
-	@echo $(RELEASE_NAME_APP)
+#.PHONY: print-var-app-name
+#print-var-app-name:
+#	@echo $(RELEASE_NAME_APP)
 
-.PHONY: print-var-arg
-print-var-alg:
-	@echo $(ALG)
+#.PHONY: print-var-arg
+#print-var-alg:
+#	@echo $(ALG)
 
 .PHONY: export-fs
 export-fs: ensure-export-dir clear-snapshots
