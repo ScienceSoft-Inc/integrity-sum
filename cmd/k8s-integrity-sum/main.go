@@ -71,21 +71,15 @@ func main() {
 
 	if viper.GetBool("syslog-enabled") {
 		addr := fmt.Sprintf("%s:%d", viper.GetString("syslog-host"), viper.GetInt("syslog-port"))
-		syslogSender, err := syslogclient.New(
+		syslogSender := syslogclient.New(
 			log,
 			viper.GetString("syslog-proto"),
 			addr,
 			syslogclient.DefaultPriority,
 			fmt.Sprintf("%s.%s", deploymentData.NameDeployment, deploymentData.NameSpace),
 			common.AppId)
-		if err != nil {
-			log.Fatalf("cannnot initialize sysylog client %v", err)
-		}
-
 		alerts.Register(syslogSender)
 		log.Info("notification to syslog enabled")
-
-		defer syslogSender.Close()
 	}
 
 	optsMap, err := integritymonitor.ParseMonitoringOpts(viper.GetString("monitoring-options"))

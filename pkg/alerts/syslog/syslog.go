@@ -29,7 +29,9 @@ var _ alerts.Sender = (*SyslogClient)(nil)
 
 type SyslogClient struct {
 	logger   *logrus.Logger
-	conn     net.Conn
+	dialer   net.Dialer
+	netType  string
+	address  string
 	priority syslog.Priority
 	tag      string
 	hostname string
@@ -38,12 +40,7 @@ type SyslogClient struct {
 // New creates syslog client
 // priority syslog.LOG_WARNING|syslog.LOG_DAEMON
 // hostName custom hostname if empty use host a name obtained from os.Hostname()
-func New(logger *logrus.Logger, network, addr string, priority syslog.Priority, hostName, tag string) (*SyslogClient, error) {
-	sysLogConn, err := net.Dial(network, addr)
-	if err != nil {
-		return nil, err
-	}
-
+func New(logger *logrus.Logger, network, addr string, priority syslog.Priority, hostName, tag string) *SyslogClient {
 	if hostName == "" {
 		hostName, _ = os.Hostname()
 	}
@@ -54,11 +51,13 @@ func New(logger *logrus.Logger, network, addr string, priority syslog.Priority, 
 
 	return &SyslogClient{
 		logger:   logger,
-		conn:     sysLogConn,
+		dialer:   net.Dialer{},
+		netType:  network,
+		address:  addr,
 		priority: priority,
 		hostname: hostName,
 		tag:      tag,
-	}, nil
+	}
 }
 
 func (sl *SyslogClient) Send(alert alerts.Alert) error {
@@ -75,14 +74,18 @@ func (sl *SyslogClient) Send(alert alerts.Alert) error {
 		sl.tag,
 		os.Getpid(),
 	)
+	conn, err := sl.dial()
+	if err != nil {
+		return fmt.Errorf("cannnot connect to syslog host %s %w", sl.address, err)
+	}
+	defer conn.Close()
 
-	_, err := fmt.Fprintf(sl.conn, "%s %s%s", header, msg, nl)
+	_, err = fmt.Fprintf(conn, "%s %s%s", header, msg, nl)
+	if err != nil {
+		return err
+	}
 
-	return err
-}
-
-func (sl *SyslogClient) Close() {
-	sl.conn.Close()
+	return nil
 }
 
 func (sl *SyslogClient) syslogMessage(alert alerts.Alert) string {
@@ -92,4 +95,8 @@ func (sl *SyslogClient) syslogMessage(alert alerts.Alert) string {
 	return fmt.Sprintf("time=%s event-type=%04d service=%s pod=%s image=%s namespace=%s cluster=%s message=%s file=%s reason=%s",
 		alert.Time.Format(time.Stamp), ErrToType[alert.Reason], pn, podName, viper.GetStringMapString("process-image")[pn],
 		viper.GetString("pod-namespace"), viper.GetString("cluster-name"), alert.Message, alert.Path, alert.Reason)
+}
+
+func (sl *SyslogClient) dial() (net.Conn, error) {
+	return sl.dialer.Dial(sl.netType, sl.address)
 }
