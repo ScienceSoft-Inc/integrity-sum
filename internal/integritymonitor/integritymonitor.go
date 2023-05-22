@@ -128,16 +128,20 @@ func compareHashes(
 			strippedPaths := strings.TrimPrefix(v.Path, procDirs)
 			if h, ok := expectedHashesMap[strippedPaths]; ok {
 				if h != v.Hash {
+					log.WithField("file", strippedPaths).WithError(fmt.Errorf("hashes not equal (expected/actual): %s != %s", h, v.Hash)).Error("compareHashes()")
 					errC <- &IntegrityError{Type: ErrTypeFileMismatch, Path: strippedPaths, Hash: v.Hash}
 					return
 				}
+				log.WithField("file", strippedPaths).Debug("compareHashess(): OK")
 				delete(expectedHashesMap, strippedPaths)
 			} else {
+				log.WithField("path", strippedPaths).Error("compareHashes(): new file")
 				errC <- &IntegrityError{Type: ErrTypeNewFile, Path: strippedPaths, Hash: v.Hash}
 				return
 			}
 		}
 		for p, h := range expectedHashesMap {
+			log.WithField("file", p).Error("compareHashes(): file deleted")
 			errC <- &IntegrityError{Type: ErrTypeFileDeleted, Path: p, Hash: h}
 			return
 		}
