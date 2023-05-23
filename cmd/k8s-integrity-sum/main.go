@@ -24,12 +24,15 @@ import (
 	"github.com/ScienceSoft-Inc/integrity-sum/pkg/minio"
 )
 
+var ImageVersion string
+
 func main() {
 	// Install config
 	initConfig()
 
 	// Install logger
 	log := logger.Init(viper.GetString("verbose"))
+	log.Infof("version: %s", ImageVersion)
 
 	// Set app health status to healthy
 	h := health.New(fmt.Sprintf("/tmp/%s", common.AppId))

@@ -29,7 +29,7 @@ PACKAGE_APP := $(REPO)/$(SRC_APP)
 BUILDTOOL_IMAGE := buildtools:latest
 DOCKER_RUNNER   := docker run --rm -v $(CUR_DIR):$(SRCROOT) -w $(SRCROOT) -u `id -u`:`id -g`
 GO_CACHE        := $(BIN)/go-cache
-GO_BUILD_FLAGS  ?= -pkgdir $(SRCROOT)/$(GO_CACHE) -v -ldflags "-linkmode external -extldflags '-static' -s -w"
+GO_BUILD_FLAGS  ?= -pkgdir $(SRCROOT)/$(GO_CACHE) -v -ldflags "-linkmode external -extldflags '-static' -X 'main.ImageVersion=$(IMAGE_VERSION)' -w -s"
 CCBUILD         := $(DOCKER_RUNNER) $(BUILDTOOL_IMAGE) gcc
 CMAKETOOL       := $(DOCKER_RUNNER) $(BUILDTOOL_IMAGE) cmake
 MAKETOOL        := $(DOCKER_RUNNER) $(BUILDTOOL_IMAGE) make
@@ -107,7 +107,7 @@ vendor:
 	go mod vendor
 
 .PHONY: docker
-docker: vendor
+docker: vendor build
 	@docker build -t $(FULL_IMAGE_NAME) -t $(IMAGE_NAME):latest -f ./docker/Dockerfile .
 
 .PHONY : helm-all
@@ -127,7 +127,7 @@ helm-syslog:
 
 .PHONY: kind-load-images
 kind-load-images:
-	@kind load docker-image $(FULL_IMAGE_NAME) controller:latest
+	@kind load docker-image $(FULL_IMAGE_NAME) $(IMAGE_NAME):latest controller:latest
 
 .PHONY : tidy
 tidy: ## Cleans the Go module.
@@ -286,7 +286,7 @@ minio-install:
 
 .PHONY: load-images
 load-images:
-	minikube image load $(FULL_IMAGE_NAME) controller:latest
+	minikube image load $(FULL_IMAGE_NAME) $(IMAGE_NAME):latest controller:latest
 
 .PHONY: install-test-cr
 install-test-cr:
@@ -296,3 +296,7 @@ install-test-cr:
 e2etest: install-test-cr envtest ginkgo
 	make helm-app SYSLOG_ENABLED=true DURATION_TIME=2s MINIO_ENABLED=true
 	$(BIN)/ginkgo -v ./e2e/...
+
+.PHONY: image-name
+image-name:
+	@echo $(FULL_IMAGE_NAME)
